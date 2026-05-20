@@ -141,13 +141,13 @@ const NotebookTimeline = () => {
 
   const handleAddCodeCell = (index) => {
     const newCells = [...codeCells];
-    newCells.splice(index + 1, 0, { id: ++globalCellId, type: 'code', content: '', output: '', aiResult: '', isRunning: false, isCorrecting: false });
+    newCells.splice(index + 1, 0, { id: Date.now() + Math.random(), type: 'code', content: '', output: '', aiResult: '', isRunning: false, isCorrecting: false });
     setCodeCells(newCells);
   };
 
   const handleAddTextCell = (index) => {
     const newCells = [...codeCells];
-    newCells.splice(index + 1, 0, { id: ++globalCellId, type: 'text', content: '', isEditing: true });
+    newCells.splice(index + 1, 0, { id: Date.now() + Math.random(), type: 'text', content: '', isEditing: true });
     setCodeCells(newCells);
   };
 
@@ -800,8 +800,8 @@ const NotebookTimeline = () => {
                             <div className="w-10 shrink-0"></div>
                             <div className="flex-1 bg-indigo-50/50 border border-indigo-100 p-4 rounded-lg relative shadow-sm">
                                <button onClick={() => updateCell(cell.id, { aiResult: '' })} className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"><X className="w-4 h-4"/></button>
-                               <h4 className="text-xs font-bold text-indigo-800 mb-2 uppercase tracking-wider flex items-center gap-2"><Brain className="w-4 h-4"/> AI Assistant</h4>
-                               <div className="prose prose-sm prose-indigo max-w-none text-gray-700 whitespace-pre-wrap">
+                               <h4 className="text-xs font-bold text-indigo-800 mb-1 uppercase tracking-wider flex items-center gap-2"><Brain className="w-4 h-4"/> AI Assistant</h4>
+                               <div className="text-[13px] leading-snug text-gray-700 whitespace-pre-wrap [&>p]:mb-2 [&>h1]:mb-2 [&>h1]:text-sm [&>h2]:mb-2 [&>h2]:text-sm [&>h3]:mb-2 [&>h3]:text-sm [&>ul]:mb-2 [&>ul]:pl-4 [&>ul]:list-disc [&>ol]:mb-2 [&>ol]:pl-4 [&>ol]:list-decimal [&>pre]:mb-2">
                                  <ReactMarkdown>{cell.aiResult}</ReactMarkdown>
                                </div>
                             </div>
@@ -1030,10 +1030,10 @@ const NotebookTimeline = () => {
                                 {/* AI Example Section */}
                                 {entry.aiExample && (
                                   <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-widest mb-2">
+                                    <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-widest mb-1">
                                       <Brain className="w-4 h-4 text-indigo-600" /> AI Explanation
                                     </div>
-                                    <div className="text-[14px] leading-relaxed text-indigo-900 prose prose-sm prose-indigo max-w-none">
+                                    <div className="text-[13px] leading-snug text-indigo-900 whitespace-pre-wrap [&>p]:mb-2 [&>h1]:mb-2 [&>h1]:text-sm [&>h2]:mb-2 [&>h2]:text-sm [&>h3]:mb-2 [&>h3]:text-sm [&>ul]:mb-2 [&>ul]:pl-4 [&>ul]:list-disc [&>ol]:mb-2 [&>ol]:pl-4 [&>ol]:list-decimal [&>pre]:mb-2">
                                       <ReactMarkdown>{entry.aiExample}</ReactMarkdown>
                                     </div>
                                   </div>
