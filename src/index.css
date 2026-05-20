@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@theme {
+  --color-background-dark: #0a0a0f;
+  --color-surface-dark: #12121a;
+  --color-primary-glow: rgba(99, 102, 241, 0.5);
+  --color-primary: #6366f1;
+}
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 0 0 0;
+  }
+  
+  .dark {
+    --background: 10 10 15;
+    --foreground: 255 255 255;
+  }
+
+  body {
+    @apply bg-[rgb(var(--background))] text-[rgb(var(--foreground))] antialiased transition-colors duration-300;
+  }
+}
+
+.glass-panel {
+  @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl;
+}
+
+.glow-effect {
+  position: relative;
+}
+
+.glow-effect::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 20px var(--color-primary-glow);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.glow-effect:hover::before {
+  opacity: 1;
+}
+
+.animated-gradient-text {
+  background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient 8s ease infinite;
+  background-size: 200% 200%;
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-gray-700/50 rounded-full hover:bg-gray-600/50 transition-colors;
+}
