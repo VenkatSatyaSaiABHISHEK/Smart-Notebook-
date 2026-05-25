@@ -56,6 +56,9 @@ const Navbar = () => {
 
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-3 mr-2">
+            <Link to="/try" className="px-4 py-2 text-sm font-semibold text-indigo-650 hover:text-indigo-850 transition-colors">
+              Try Demo
+            </Link>
             <Link to="/notebook" className="px-4 py-2 text-sm font-medium text-[#111827] hover:text-indigo-300 transition-colors">
               Log in
             </Link>
@@ -95,6 +98,7 @@ const Navbar = () => {
                 </a>
               ))}
               <div className="pt-4 flex flex-col gap-3">
+                <Link to="/try" className="w-full py-3 text-center rounded-xl bg-indigo-50 border border-indigo-150 text-indigo-755 font-bold" onClick={() => setMobileMenuOpen(false)}>Try Demo</Link>
                 <Link to="/notebook" className="w-full py-3 text-center rounded-xl bg-gray-50 text-[#111827] font-medium border border-gray-200">Log in</Link>
                 <Link to="/notebook" className="w-full py-3 text-center rounded-xl bg-white text-black font-semibold">Get Started</Link>
               </div>

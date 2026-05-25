@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  Home, BookText, Network, Sparkles, User, Settings, Bell, LogOut
+  Home, BookText, Network, Sparkles, User, Settings, Bell, LogOut, Cpu
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,6 +14,7 @@ const Sidebar = () => {
   const links = [
     { path: '/dashboard', icon: Home },
     { path: '/notebook', icon: BookText },
+    { path: '/visualizer', icon: Cpu },
     { path: '/community', icon: Network },
   ];
 

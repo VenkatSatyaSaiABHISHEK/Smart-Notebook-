@@ -1,1 +1,2 @@
-for i in range(1,4):
+x = input("Enter a number: ")
+print("You entered:", x)

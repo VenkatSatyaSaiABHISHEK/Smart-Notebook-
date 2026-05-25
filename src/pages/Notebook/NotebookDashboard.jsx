@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Brain, Folder, Loader2, AlertCircle, Plus, Users } from 'lucide-react';
+import { Upload, FileText, Brain, Folder, Loader2, AlertCircle, Plus, Users, Share2, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCompletedNotebookDays } from '../../services/notebookService';
 
@@ -11,6 +11,15 @@ const NotebookDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [completedDaysList, setCompletedDaysList] = useState([]);
   const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleShare = () => {
+    if (userData?.uid) {
+      navigator.clipboard.writeText(`${window.location.origin}/shared-notebook/${userData.uid}`);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -104,7 +113,15 @@ const NotebookDashboard = () => {
             Your AI-powered daily learning journal. Complete your daily actions to maintain your streak and process new knowledge.
           </p>
         </div>
-        <div className="text-right text-[#6b7280] bg-white px-5 py-3 rounded-2xl shadow-sm border border-gray-200 min-w-[200px] flex flex-col items-end">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleShare}
+            className="flex items-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-3 rounded-2xl font-bold transition-colors shadow-sm border border-indigo-100 h-full"
+          >
+            {isCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+            {isCopied ? 'Link Copied!' : 'Share Notebook'}
+          </button>
+          <div className="text-right text-[#6b7280] bg-white px-5 py-3 rounded-2xl shadow-sm border border-gray-200 min-w-[200px] flex flex-col items-end">
           <div className="text-sm font-bold text-[#111827] mb-0.5">
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
@@ -112,6 +129,7 @@ const NotebookDashboard = () => {
             {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Daily Action Plan */}

@@ -76,3 +76,21 @@
 .custom-scrollbar::-webkit-scrollbar-thumb {
   @apply bg-gray-700/50 rounded-full hover:bg-gray-600/50 transition-colors;
 }
+
+/* 3D Flip Card Styles */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+

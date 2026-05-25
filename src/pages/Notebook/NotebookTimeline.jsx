@@ -4,19 +4,82 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, ArrowRight, Brain, Plus, Image as ImageIcon, FileText, Link as LinkIcon, 
   Send, Loader2, Code, Play, CheckCircle2, FileCode2, Trash2, Edit2, Save, X,
-  Calendar, Terminal, Check, PlayCircle, MoreVertical, ArrowUp, ArrowDown
+  Calendar, Terminal, Check, PlayCircle, MoreVertical, ArrowUp, ArrowDown, Sparkles, Cpu
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getNotebookEntries, addNotebookEntry, deleteNotebookEntry, updateNotebookEntry } from '../../services/notebookService';
+import { getNotebookEntries, addNotebookEntry, deleteNotebookEntry, updateNotebookEntry, getCachedExplanation, setCachedExplanation, updateUserTokens, getLocalCachedExplanation, detectTopic } from '../../services/notebookService';
 import { processWithGroq } from '../../services/groqService';
 import ReactMarkdown from 'react-markdown';
 import Editor from '@monaco-editor/react';
+import InteractiveAiExplanation from '../../components/InteractiveAiExplanation';
 
 let globalCellId = 10000;
 
+const parseInputPrompts = (code, language) => {
+  const prompts = [];
+  const hasStdin = code.includes('input(') || code.includes('scanf(') || code.includes('cin >>') || code.includes('sys.stdin') || code.includes('getchar(') || code.includes('fgets(');
+  if (!hasStdin) return null;
+
+  if (language === 'python') {
+    const regex = /input\(\s*(['"])(.*?)\1\s*\)/g;
+    let match;
+    while ((match = regex.exec(code)) !== null) {
+      prompts.push(match[2]);
+    }
+    const plainInputMatches = code.match(/input\(\s*\)/g) || [];
+    const sysStdinMatches = code.match(/sys\.stdin/g) || [];
+    const totalPromptsNeeded = plainInputMatches.length + sysStdinMatches.length;
+    if (prompts.length === 0 && totalPromptsNeeded === 0) {
+      prompts.push("Enter input: ");
+    } else {
+      for (let i = prompts.length; i < prompts.length + totalPromptsNeeded; i++) {
+        prompts.push("Enter input: ");
+      }
+    }
+  } else if (language === 'c') {
+    const scanfCount = (code.match(/scanf\(/g) || []).length;
+    const fgetsCount = (code.match(/fgets\(/g) || []).length;
+    const getcharCount = (code.match(/getchar\(/g) || []).length;
+    const total = scanfCount + fgetsCount + getcharCount;
+    for (let i = 0; i < total; i++) {
+      prompts.push(`Standard Input (stdin)${total > 1 ? ' [' + (i + 1) + ']' : ''}: `);
+    }
+    if (prompts.length === 0) {
+      prompts.push("Standard Input (stdin): ");
+    }
+  }
+  return prompts.length > 0 ? prompts : ["Enter input: "];
+};
+
+const formatExecutionOutput = (stdout, prompts, values) => {
+  if (!stdout) return stdout;
+  if (!prompts || !values || prompts.length === 0) return stdout;
+  
+  let formatted = stdout;
+  let prependedInputs = "";
+  
+  for (let i = 0; i < prompts.length; i++) {
+    const prompt = prompts[i];
+    const val = values[i] || "";
+    
+    const idx = formatted.indexOf(prompt);
+    if (idx !== -1) {
+      const afterPrompt = formatted.substring(idx + prompt.length);
+      const startWithVal = afterPrompt.startsWith(val + "\n") || afterPrompt.startsWith(val + "\r\n");
+      if (!startWithVal) {
+        formatted = formatted.substring(0, idx + prompt.length) + val + "\n" + afterPrompt;
+      }
+    } else {
+      prependedInputs += `${prompt}${val}\n`;
+    }
+  }
+  
+  return prependedInputs + formatted;
+};
+
 const NotebookTimeline = () => {
   const { day } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, userData, setUserData } = useAuth();
   const bottomRef = useRef(null);
   const monacoRef = useRef({});
   const editorRefs = useRef({});
@@ -29,6 +92,7 @@ const NotebookTimeline = () => {
 
   // Initial Notebook Data for the Day
   const [entries, setEntries] = useState([]);
+  const [selectedTopicFilter, setSelectedTopicFilter] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Input State
@@ -39,6 +103,32 @@ const NotebookTimeline = () => {
   // Editing State
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [activeExplanationId, setActiveExplanationId] = useState(null);
+  const [isTokenHubOpen, setIsTokenHubOpen] = useState(false);
+
+  // Close active explanation modal if we switch sub-tabs
+  useEffect(() => {
+    setActiveExplanationId(null);
+  }, [activeTab]);
+
+  const updateUserTokenUsage = async (used, saved = 0) => {
+    if (!currentUser?.uid) return;
+    if (setUserData) {
+      setUserData(prev => {
+        const base = prev || {};
+        return {
+          ...base,
+          tokensUsed: (base.tokensUsed || 0) + used,
+          tokensSaved: (base.tokensSaved || 0) + saved
+        };
+      });
+    }
+    try {
+      await updateUserTokens(currentUser.uid, used, saved);
+    } catch (e) {
+      console.error("Error updating user tokens:", e);
+    }
+  };
 
   // Timetable State
   const [timetableTasks, setTimetableTasks] = useState([
@@ -67,12 +157,12 @@ const NotebookTimeline = () => {
     }
   }, [codeCells, day]);
 
-  // Scroll to bottom when entries change in notebook tab
+  // Scroll to bottom only when a new entry is added (entries.length changes)
   useEffect(() => {
     if (activeTab === 'notebook' && entries.length > 0) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [entries, isAnalyzing, activeTab]);
+  }, [entries.length, activeTab]);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -159,9 +249,24 @@ const NotebookTimeline = () => {
   const handleAutoAIErrorExplain = async (id, code, errorMsg) => {
     updateCell(id, { isCorrecting: true });
     try {
-      const prompt = `I got an error running this ${codeLabLanguage} code:\n\n\`\`\`${codeLabLanguage}\n${code}\n\`\`\`\n\nError:\n${errorMsg}\n\nPlease briefly explain why this happened and provide the corrected code.`;
+      const prompt = `I got an error running this ${codeLabLanguage} code:
+
+\`\`\`${codeLabLanguage}
+${code}
+\`\`\`
+
+Error:
+${errorMsg}
+
+Please briefly explain why this happened and provide the corrected code.
+
+CRITICAL INSTRUCTION FOR CORRECTED CODE:
+1. You MUST preserve the original function names, variable names, and line-by-line structure as much as possible. Do NOT rename any functions (e.g. keep 'fin' as 'fin', do NOT rename to 'fib' or 'fibonacci') or variables.
+2. Only fix the exact bug causing the error. Do NOT add extra validation checks (such as value errors or negative checks) or rewrite the control flow (e.g., changing 'if' statements to 'elif/else' structures or nesting) unless it is directly causing the error.
+3. Keep the corrected code as close as possible to the original line count so that it can be easily traced line-by-line.`;
       const res = await processWithGroq(prompt, "explain_code");
-      updateCell(id, { aiResult: "⚠️ **Auto-Error Analysis:**\n\n" + res });
+      updateCell(id, { aiResult: "⚠️ **Auto-Error Analysis:**\n\n" + res.text });
+      updateUserTokenUsage(res.usage.total_tokens, 0);
     } catch (err) {
       console.error(err);
     } finally {
@@ -171,11 +276,39 @@ const NotebookTimeline = () => {
 
   const runCode = async (id, code) => {
     if (!code.trim()) return;
+    
+    const lang = codeLabLanguage === 'python' ? 'python' : 'c';
+    const prompts = parseInputPrompts(code, lang);
+    
+    if (prompts) {
+      updateCell(id, {
+        isRunning: true,
+        awaitingInput: true,
+        inputPrompts: prompts,
+        inputValues: Array(prompts.length).fill(''),
+        currentPromptIndex: 0,
+        output: '',
+        aiResult: ''
+      });
+      return;
+    }
+    
+    await executeCodeRequest(id, code, [], []);
+  };
+
+  const submitCodeInput = async (id, code, inputValues) => {
+    updateCell(id, { awaitingInput: false, isRunning: true });
+    const lang = codeLabLanguage === 'python' ? 'python' : 'c';
+    const prompts = parseInputPrompts(code, lang) || [];
+    await executeCodeRequest(id, code, inputValues, prompts);
+  };
+
+  const executeCodeRequest = async (id, code, inputValues = [], prompts = []) => {
     updateCell(id, { isRunning: true, output: '', aiResult: '' });
     try {
       const lang = codeLabLanguage === 'python' ? 'python' : 'c';
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const cellInput = document.getElementById(`input-${id}`)?.value || '';
+      const cellInput = inputValues.join('\n');
       const response = await fetch(`${API_BASE}/api/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Bypass-Tunnel-Reminder": "true" },
@@ -183,7 +316,11 @@ const NotebookTimeline = () => {
       });
       const result = await response.json();
       if (result.error) throw new Error(result.error);
-      const outText = result.output || "Executed successfully with no output.";
+      let outText = result.output || "Executed successfully with no output.";
+      
+      // Format output to show entered input inline
+      outText = formatExecutionOutput(outText, prompts, inputValues);
+      
       updateCell(id, { output: outText });
       if (outText.toLowerCase().includes('error') || outText.toLowerCase().includes('traceback') || outText.toLowerCase().includes('exception')) {
         handleAutoAIErrorExplain(id, code, outText);
@@ -200,9 +337,21 @@ const NotebookTimeline = () => {
     if (!code.trim()) return;
     updateCell(id, { isCorrecting: true });
     try {
-      const prompt = `Here is some ${codeLabLanguage} code:\n\n\`\`\`${codeLabLanguage}\n${code}\n\`\`\`\n\nPlease correct it if there are errors, explain how it works, and show any improvements.`;
+      const prompt = `Here is some ${codeLabLanguage} code:
+
+\`\`\`${codeLabLanguage}
+${code}
+\`\`\`
+
+Please analyze it. If there are syntax or runtime errors, explain why they happen and provide the corrected code.
+
+CRITICAL INSTRUCTION FOR CORRECTED CODE:
+1. You MUST preserve the original function names, variable names, and line-by-line structure as much as possible. Do NOT rename any functions (e.g. keep 'fin' as 'fin', do NOT rename to 'fib' or 'fibonacci') or variables.
+2. Only fix the exact bug causing the error. Do NOT add extra validation checks (such as value errors or negative checks) or rewrite the control flow (e.g., changing 'if' statements to 'elif/else' structures or nesting) unless it is directly causing the error.
+3. Keep the corrected code as close as possible to the original line count so that it can be easily traced line-by-line.`;
       const res = await processWithGroq(prompt, "explain_code");
-      updateCell(id, { aiResult: res });
+      updateCell(id, { aiResult: res.text });
+      updateUserTokenUsage(res.usage.total_tokens, 0);
     } catch (err) {
       updateCell(id, { aiResult: "AI Error: " + err.message });
     } finally {
@@ -212,31 +361,80 @@ const NotebookTimeline = () => {
 
   const runNotebookEntry = async (id, code, language) => {
     if (!code?.trim()) return;
-    
-    // Update local state first to show running
-    setEntries(prev => prev.map(entry => 
+
+    const lang = language === 'python' ? 'python' : 'c';
+    const prompts = parseInputPrompts(code, lang);
+
+    if (prompts) {
+      setEntries(prev => prev.map(entry =>
+        entry.id === id ? {
+          ...entry,
+          isRunning: true,
+          awaitingInput: true,
+          inputPrompts: prompts,
+          inputValues: Array(prompts.length).fill(''),
+          currentPromptIndex: 0,
+          output: ''
+        } : entry
+      ));
+      return;
+    }
+
+    await executeNotebookEntryRequest(id, code, language, [], []);
+  };
+
+  const submitNotebookEntryInput = async (id, code, language, inputValues) => {
+    setEntries(prev => prev.map(entry =>
+      entry.id === id ? { ...entry, awaitingInput: false, isRunning: true } : entry
+    ));
+    const lang = language === 'python' ? 'python' : 'c';
+    const prompts = parseInputPrompts(code, lang) || [];
+    await executeNotebookEntryRequest(id, code, language, inputValues, prompts);
+  };
+
+  const executeNotebookEntryRequest = async (id, code, language, inputValues = [], prompts = []) => {
+    setEntries(prev => prev.map(entry =>
       entry.id === id ? { ...entry, isRunning: true, output: '' } : entry
     ));
 
     try {
       const lang = language === 'python' ? 'python' : 'c';
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const cellInput = inputValues.join('\n');
       const response = await fetch(`${API_BASE}/api/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Bypass-Tunnel-Reminder": "true" },
-        body: JSON.stringify({ language: lang, code: code })
+        body: JSON.stringify({ language: lang, code: code, input: cellInput })
       });
       const result = await response.json();
       if (result.error) throw new Error(result.error);
       
-      const outText = result.output || "Executed successfully with no output.";
+      let outText = result.output || "Executed successfully with no output.";
       
+      // Format output to show entered input inline
+      outText = formatExecutionOutput(outText, prompts, inputValues);
+
       let aiResultUpdate = undefined;
       const lowerOut = outText.toLowerCase();
       if (lowerOut.includes('error') || lowerOut.includes('traceback') || lowerOut.includes('exception')) {
-        const prompt = `I got an error running this ${lang} code:\\n\\n\`\`\`${lang}\\n${code}\\n\`\`\`\\n\\nError:\\n${outText}\\n\\nPlease briefly explain why this happened and provide the corrected code.`;
+        const prompt = `I got an error running this ${lang} code:
+
+\`\`\`${lang}
+${code}
+\`\`\`
+
+Error:
+${outText}
+
+Please briefly explain why this happened and provide the corrected code.
+
+CRITICAL INSTRUCTION FOR CORRECTED CODE:
+1. You MUST preserve the original function names, variable names, and line-by-line structure as much as possible. Do NOT rename any functions (e.g. keep 'fin' as 'fin', do NOT rename to 'fib' or 'fibonacci') or variables.
+2. Only fix the exact bug causing the error. Do NOT add extra validation checks (such as value errors or negative checks) or rewrite the control flow (e.g., changing 'if' statements to 'elif/else' structures or nesting) unless it is directly causing the error.
+3. Keep the corrected code as close as possible to the original line count so that it can be easily traced line-by-line.`;
         const aiExp = await processWithGroq(prompt, "explain_code");
-        aiResultUpdate = "⚠️ **Auto-Error Analysis:**\\n\\n" + aiExp;
+        aiResultUpdate = "⚠️ **Auto-Error Analysis:**\n\n" + aiExp.text;
+        updateUserTokenUsage(aiExp.usage.total_tokens, 0);
       }
       
       setEntries(prev => prev.map(entry => 
@@ -256,9 +454,24 @@ const NotebookTimeline = () => {
       updateNotebookEntry(currentUser.uid, day || '1', id, { output: outText }).catch(console.error);
       
       // Auto explain error
-      const prompt = `I got an error running this code:\\n\\n\`\`\`\\n${code}\\n\`\`\`\\n\\nError:\\n${error.message}\\n\\nPlease briefly explain why this happened and provide the corrected code.`;
+      const prompt = `I got an error running this code:
+
+\`\`\`
+${code}
+\`\`\`
+
+Error:
+${error.message}
+
+Please briefly explain why this happened and provide the corrected code.
+
+CRITICAL INSTRUCTION FOR CORRECTED CODE:
+1. You MUST preserve the original function names, variable names, and line-by-line structure as much as possible. Do NOT rename any functions (e.g. keep 'fin' as 'fin', do NOT rename to 'fib' or 'fibonacci') or variables.
+2. Only fix the exact bug causing the error. Do NOT add extra validation checks (such as value errors or negative checks) or rewrite the control flow (e.g., changing 'if' statements to 'elif/else' structures or nesting) unless it is directly causing the error.
+3. Keep the corrected code as close as possible to the original line count so that it can be easily traced line-by-line.`;
       processWithGroq(prompt, "explain_code").then(aiExp => {
-        const aiResultUpdate = "⚠️ **Auto-Error Analysis:**\\n\\n" + aiExp;
+        const aiResultUpdate = "⚠️ **Auto-Error Analysis:**\n\n" + aiExp.text;
+        updateUserTokenUsage(aiExp.usage.total_tokens, 0);
         setEntries(prev => prev.map(entry => 
           entry.id === id ? { ...entry, aiExample: aiResultUpdate } : entry
         ));
@@ -339,7 +552,7 @@ const NotebookTimeline = () => {
     setAnalysisStatus('Parsing PDF document structure...');
     try {
       const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
       const reader = new FileReader();
       reader.onload = async (event) => {
@@ -352,8 +565,59 @@ const NotebookTimeline = () => {
             const textContent = await page.getTextContent();
             fullText += textContent.items.map(item => item.str).join(" ") + "\\n";
           }
-          setIsAnalyzing(false); // reset so handleAddData can show its own status
-          handleAddData('text', "Here is the content of the PDF I uploaded, please format and extract the blocks:\\n\\n" + fullText);
+          
+          // PDF Chunking Logic
+          const chunkSize = 3000;
+          const chunks = [];
+          for (let i = 0; i < fullText.length; i += chunkSize) {
+            chunks.push(fullText.slice(i, i + chunkSize));
+          }
+
+          for (let i = 0; i < chunks.length; i++) {
+            setAnalysisStatus(`AI is analyzing PDF chunk ${i + 1} of ${chunks.length}...`);
+            const chunkText = chunks[i];
+            const dataToProcess = "Format and extract the blocks from this PDF part:\\n\\n" + chunkText;
+            
+            try {
+              const resObj = await processWithGroq(dataToProcess, "extract_blocks");
+              const aiBlocksStr = resObj.text;
+              updateUserTokenUsage(resObj.usage.total_tokens, 0);
+              const jsonMatch = aiBlocksStr.match(/\[.*\]/s);
+              if (jsonMatch) {
+                const blocks = JSON.parse(jsonMatch[0]);
+                const newEntriesList = [];
+                for (const block of blocks) {
+                  const cellEntryData = {
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    type: block.type || 'text',
+                    content: block.content || '',
+                    language: block.language || null,
+                    output: block.output || null,
+                    aiExample: block.aiExample || null,
+                    topic: block.topic || null,
+                    source: 'PDF Upload'
+                  };
+                  const docId = await addNotebookEntry(currentUser.uid, day || '1', cellEntryData);
+                  newEntriesList.push({ id: docId, ...cellEntryData });
+                }
+                setEntries(prev => [...prev, ...newEntriesList]);
+              } else {
+                throw new Error("No JSON array found in response");
+              }
+            } catch (err) {
+              console.error("Groq Chunk Error:", err);
+              const cellEntryData = {
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                type: 'text',
+                content: dataToProcess,
+                source: 'PDF Upload (Raw)'
+              };
+              const docId = await addNotebookEntry(currentUser.uid, day || '1', cellEntryData);
+              setEntries(prev => [...prev, { id: docId, ...cellEntryData }]);
+            }
+          }
+          setIsAnalyzing(false);
+          setAnalysisStatus('');
         } catch (err) {
           alert("Failed to parse PDF: " + err.message);
           setIsAnalyzing(false);
@@ -440,7 +704,9 @@ const NotebookTimeline = () => {
         newEntryData.source = 'Code Snippet';
       } else {
         try {
-          const aiBlocksStr = await processWithGroq(dataToProcess, "extract_blocks");
+          const resObj = await processWithGroq(dataToProcess, "extract_blocks");
+          const aiBlocksStr = resObj.text;
+          updateUserTokenUsage(resObj.usage.total_tokens, 0);
           const jsonMatch = aiBlocksStr.match(/\[.*\]/s);
           if (jsonMatch) {
             const blocks = JSON.parse(jsonMatch[0]);
@@ -454,6 +720,7 @@ const NotebookTimeline = () => {
                 language: block.language || null,
                 output: block.output || null,
                 aiExample: block.aiExample || null,
+                topic: block.topic || null,
                 source: actionSource
               };
               const docId = await addNotebookEntry(currentUser.uid, day || '1', cellEntryData);
@@ -511,6 +778,91 @@ const NotebookTimeline = () => {
   };
 
   const handleGenerateExample = async (entryId) => {
+    const entryToExplain = entries.find(e => e.id === entryId);
+    if (!entryToExplain) return;
+
+    // Immediately show the player (loading state or full explanation)
+    setActiveExplanationId(entryId);
+
+    // If it's already explained, it will display the completed explanation immediately
+    if (entryToExplain.aiExample) {
+      return;
+    }
+
+    const codeContent = (entryToExplain.content || '').trim();
+    
+    // 1. Check Local Storage Cache first for instant load!
+    const localCached = getLocalCachedExplanation(currentUser?.uid, codeContent);
+    if (localCached) {
+      const detectedTopic = detectTopic({ content: codeContent, aiExample: localCached });
+      setEntries(prev => prev.map(entry => 
+        entry.id === entryId ? { ...entry, aiExample: localCached, topic: detectedTopic, isGeneratingExample: false } : entry
+      ));
+      await updateNotebookEntry(currentUser.uid, day || '1', entryId, { aiExample: localCached, topic: detectedTopic });
+      await updateUserTokenUsage(0, 1500); // Record cached token savings!
+      return;
+    }
+
+    // 2. Check Firestore Explanation Cache (Storebase) next!
+    // We check this BEFORE checking user limits because cache hits use 0 Groq tokens!
+    try {
+      const cachedExplanation = await getCachedExplanation(currentUser?.uid, codeContent);
+      if (cachedExplanation) {
+        const detectedTopic = detectTopic({ content: codeContent, aiExample: cachedExplanation });
+        setEntries(prev => prev.map(entry => 
+          entry.id === entryId ? { ...entry, aiExample: cachedExplanation, topic: detectedTopic, isGeneratingExample: false } : entry
+        ));
+        await updateNotebookEntry(currentUser.uid, day || '1', entryId, { aiExample: cachedExplanation, topic: detectedTopic });
+        // Record cached token savings! Let's say an average trace saves 1500 tokens
+        await updateUserTokenUsage(0, 1500);
+        return;
+      }
+    } catch (e) {
+      console.error("Cache check failed:", e);
+    }
+
+    // Check token limit before calling Groq
+    const tokenLimit = 50000;
+    const currentUsed = userData?.tokensUsed || 0;
+    if (currentUsed >= tokenLimit) {
+      alert("⚠️ Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Caching (Storebase) is still active for previously run snippets, but new snippets cannot be analyzed until tomorrow.");
+      setActiveExplanationId(null); // Close modal if blocked
+      return;
+    }
+
+    setEntries(prev => prev.map(entry => 
+      entry.id === entryId ? { ...entry, isGeneratingExample: true } : entry
+    ));
+
+    try {
+      // 2. Cache Miss: generate explanation from Groq API
+      const resObj = await processWithGroq(entryToExplain.content, "explain_code");
+      const explanation = resObj.text;
+
+      // Update actual token usage in Firestore and context
+      await updateUserTokenUsage(resObj.usage.total_tokens, 0);
+
+      // 3. Write to Firestore Cache (Storebase)
+      if (codeContent) {
+        await setCachedExplanation(currentUser?.uid, codeContent, explanation);
+      }
+
+      const detectedTopic = detectTopic({ content: codeContent, aiExample: explanation });
+      setEntries(prev => prev.map(entry => 
+        entry.id === entryId ? { ...entry, aiExample: explanation, topic: detectedTopic, isGeneratingExample: false } : entry
+      ));
+
+      await updateNotebookEntry(currentUser.uid, day || '1', entryId, { aiExample: explanation, topic: detectedTopic });
+    } catch (err) {
+      alert("Failed to generate AI explanation: " + err.message);
+      setEntries(prev => prev.map(entry => 
+        entry.id === entryId ? { ...entry, isGeneratingExample: false } : entry
+      ));
+      setActiveExplanationId(null); // Close modal on error
+    }
+  };
+
+  const handleRegenerateWithFeedback = async (entryId, feedback) => {
     setEntries(prev => prev.map(entry => 
       entry.id === entryId ? { ...entry, isGeneratingExample: true } : entry
     ));
@@ -519,15 +871,52 @@ const NotebookTimeline = () => {
       const entryToExplain = entries.find(e => e.id === entryId);
       if (!entryToExplain) return;
 
-      const explanation = await processWithGroq(entryToExplain.content, "explain_code");
+      const codeContent = (entryToExplain.content || '').trim();
+      const previousExplanation = entryToExplain.aiExample || '';
+      
+      // Truncate previous explanation to avoid Groq's 6,000 TPM limit
+      const maxPrevLength = 1000;
+      const truncatedPrev = previousExplanation.length > maxPrevLength 
+        ? previousExplanation.substring(0, maxPrevLength) + "\n... [truncated to prevent rate limits]"
+        : previousExplanation;
 
+      // Prepare AI correction prompt
+      const prompt = `You previously analyzed this code but made an error:
+\`\`\`python
+${codeContent}
+\`\`\`
+
+Here is a preview of your previous explanation:
+${truncatedPrev}
+
+User feedback on what to correct: "${feedback}"
+
+Please output a corrected step-by-step trace. Follow the exact same formatting rules:
+- Format subheadings exactly as '### Step X (Line Y): [Title]' or '### Step X (Lines Y-Z): [Title]'.
+- If any variables change, add a new line formatted exactly as: 'State: var1 = val1, var2 = val2'.
+- For recursive functions, you MUST also output the exact call stack at the end of each step (on its own line, before or after the State line) formatted exactly as: 'Call Stack: func(args1) [status1] -> func(args2) [status2] -> ...' (e.g., 'Call Stack: GCD(24, 36) [Suspended] -> GCD(24, 12) [Active]'). The status should be one of: 'Active', 'Suspended', or 'Base Case' or 'Returning [value]'. If it is not recursive, you can omit the Call Stack line.
+- Clean up any accidental code tags or ID metadata in python blocks (e.g. do NOT put id="..." inside code).`;
+
+      // Call Groq
+      const resObj = await processWithGroq(prompt, "explain_code");
+      const correctedExplanation = resObj.text;
+
+      // Update tokens
+      await updateUserTokenUsage(resObj.usage.total_tokens, 0);
+
+      // Overwrite Firestore Cache (Storebase) with the corrected explanation
+      if (codeContent) {
+        await setCachedExplanation(currentUser?.uid, codeContent, correctedExplanation);
+      }
+
+      // Update local state and Firestore entry
       setEntries(prev => prev.map(entry => 
-        entry.id === entryId ? { ...entry, aiExample: explanation, isGeneratingExample: false } : entry
+        entry.id === entryId ? { ...entry, aiExample: correctedExplanation, isGeneratingExample: false } : entry
       ));
+      await updateNotebookEntry(currentUser.uid, day || '1', entryId, { aiExample: correctedExplanation });
 
-      await updateNotebookEntry(currentUser.uid, day || '1', entryId, { aiExample: explanation });
     } catch (err) {
-      alert("Failed to generate AI explanation: " + err.message);
+      alert("Failed to regenerate explanation: " + err.message);
       setEntries(prev => prev.map(entry => 
         entry.id === entryId ? { ...entry, isGeneratingExample: false } : entry
       ));
@@ -550,8 +939,110 @@ const NotebookTimeline = () => {
             <span className="font-bold text-gray-900">Day {day || 1} Module</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold border border-emerald-100 shadow-sm">
-          <CheckCircle2 className="w-4 h-4" /> Auto-Saved
+        
+        {/* Token stats & auto-saved status */}
+        <div className="flex items-center gap-3">
+          {/* Caching Savings Badge */}
+          {(userData?.tokensSaved || 0) > 0 && (
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-black rounded-lg shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 animate-pulse text-indigo-500" />
+              <span>Storebase Saved: {(userData.tokensSaved).toLocaleString()} Tokens</span>
+            </div>
+          )}
+
+          {/* Token Balance Tracker & Hub */}
+          <div className="relative">
+            <button 
+              onClick={() => setIsTokenHubOpen(!isTokenHubOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 rounded-lg text-xs font-mono shadow-sm hover:bg-slate-850 active:scale-[0.98] transition-all cursor-pointer select-none"
+              title="Click to view detailed AI token usage & savings stats"
+            >
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="flex flex-col text-left">
+                <div className="flex justify-between gap-3 text-[9px] font-black uppercase text-slate-400">
+                  <span>Groq Usage</span>
+                  <span className={(userData?.tokensUsed || 0) >= 42500 ? "text-rose-400 animate-pulse font-bold" : (userData?.tokensUsed || 0) >= 30000 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+                    {(userData?.tokensUsed || 0).toLocaleString()} / 50k
+                  </span>
+                </div>
+                <div className="w-20 h-0.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                  <div 
+                    className={`h-full transition-all duration-500 ${
+                      (userData?.tokensUsed || 0) >= 42500 ? "bg-rose-500" : (userData?.tokensUsed || 0) >= 30000 ? "bg-amber-500" : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${Math.min(100, ((userData?.tokensUsed || 0) / 50000) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </button>
+
+            {/* Dropdown Popover */}
+            {isTokenHubOpen && (
+              <>
+                {/* Backdrop overlay to close when clicking outside */}
+                <div 
+                  className="fixed inset-0 z-30" 
+                  onClick={() => setIsTokenHubOpen(false)}
+                />
+                
+                <div className="absolute right-0 top-full mt-2 w-72 bg-slate-955/95 backdrop-blur-md border border-slate-800 text-slate-200 rounded-xl p-4 shadow-2xl z-40 flex flex-col space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-indigo-400" /> Usage & Savings Hub
+                    </span>
+                    <button 
+                      onClick={() => setIsTokenHubOpen(false)}
+                      className="p-1 hover:bg-slate-850 rounded-md text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Budget Usage */}
+                  <div className="space-y-1.5 text-left">
+                    <div className="flex justify-between text-[11px] text-slate-400 font-bold">
+                      <span>Daily Groq Budget</span>
+                      <span>{Math.round(((userData?.tokensUsed || 0) / 50000) * 100)}%</span>
+                    </div>
+                    <div className="text-lg font-mono font-bold text-slate-100 flex items-baseline gap-1">
+                      <span>{(userData?.tokensUsed || 0).toLocaleString()}</span>
+                      <span className="text-xs text-slate-500 font-normal">/ 50,000 tokens</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-900 border border-slate-850 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          (userData?.tokensUsed || 0) >= 42500 ? "bg-rose-500 animate-pulse" : (userData?.tokensUsed || 0) >= 30000 ? "bg-amber-500" : "bg-indigo-500"
+                        }`}
+                        style={{ width: `${Math.min(100, ((userData?.tokensUsed || 0) / 50000) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Savings */}
+                  <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-lg p-3 text-left space-y-1">
+                    <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-black uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Stored Savings
+                    </div>
+                    <div className="text-xl font-mono font-black text-emerald-300">
+                      +{(userData?.tokensSaved || 0).toLocaleString()}
+                      <span className="text-xs font-normal text-emerald-500 ml-1">tokens saved</span>
+                    </div>
+                    <p className="text-[10px] text-emerald-500/80 leading-normal font-medium">
+                      Storebase saved these tokens by using local cache & cloud records instead of calling Groq!
+                    </p>
+                  </div>
+
+                  <p className="text-[9.5px] text-slate-500 leading-normal text-left font-medium">
+                    Caching stores AI trace steps. Any identical code blocks run instantly with zero token consumption.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold border border-emerald-100 shadow-sm">
+            <CheckCircle2 className="w-4 h-4" /> Auto-Saved
+          </div>
         </div>
       </header>
 
@@ -781,17 +1272,48 @@ const NotebookTimeline = () => {
                             </div>
                           </div>
 
-                          {/* Standard Input */}
-                          <div className="w-full border-t border-gray-200 bg-gray-50 flex flex-col rounded-b-lg overflow-hidden">
-                            <div className="px-3 py-1.5 bg-gray-100 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                              Standard Input (stdin)
+                          {/* Standard Input - Colab-style Dynamic Prompts */}
+                          {cell.awaitingInput && (
+                            <div className="w-full border-t border-gray-200 bg-gray-50 flex flex-col rounded-b-lg overflow-hidden p-4 gap-3">
+                              <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-1">
+                                <Terminal className="w-3.5 h-3.5 text-indigo-500" /> Dynamic Standard Input (stdin)
+                              </div>
+                              <div className="flex flex-col gap-2.5">
+                                {cell.inputPrompts?.map((prompt, promptIdx) => (
+                                  <div key={promptIdx} className="flex items-center gap-3 font-mono text-[13.5px] bg-white border border-gray-200 rounded-lg px-3 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
+                                    <span className="text-gray-600 font-semibold select-none">{prompt}</span>
+                                    <input
+                                      type="text"
+                                      value={cell.inputValues?.[promptIdx] || ''}
+                                      autoFocus={promptIdx === (cell.currentPromptIndex || 0)}
+                                      disabled={promptIdx !== (cell.currentPromptIndex || 0)}
+                                      placeholder={promptIdx === (cell.currentPromptIndex || 0) ? "Type value and press Enter..." : ""}
+                                      onChange={(e) => {
+                                        const newVals = [...(cell.inputValues || [])];
+                                        newVals[promptIdx] = e.target.value;
+                                        updateCell(cell.id, { inputValues: newVals });
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          const currentIdx = cell.currentPromptIndex || 0;
+                                          if (currentIdx < cell.inputPrompts.length - 1) {
+                                            updateCell(cell.id, { currentPromptIndex: currentIdx + 1 });
+                                          } else {
+                                            submitCodeInput(cell.id, cell.content, cell.inputValues || []);
+                                          }
+                                        }
+                                      }}
+                                      className="flex-1 bg-transparent border-none outline-none text-gray-900 font-bold"
+                                    />
+                                    {promptIdx === (cell.currentPromptIndex || 0) && (
+                                      <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 shadow-sm animate-pulse">↵ Enter</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                            <textarea 
-                              id={`input-${cell.id}`}
-                              placeholder="Type input here (e.g., 5)..." 
-                              className="w-full bg-transparent text-[13px] p-3 text-gray-700 outline-none resize-y font-mono min-h-[45px] custom-scrollbar"
-                            />
-                          </div>
+                          )}
                         </div>
                       </div>
 
@@ -906,13 +1428,56 @@ const NotebookTimeline = () => {
                     </p>
                   </div>
                 ) : (
-                  entries.map((entry, index) => {
-                    const prevEntry = entries[index - 1];
-                    const currentSource = entry.source || 'AI Assistant';
-                    const prevSource = prevEntry ? (prevEntry.source || 'AI Assistant') : null;
-                    const isSameGroup = prevEntry && prevEntry.timestamp === entry.timestamp && prevSource === currentSource;
+                  <div className="space-y-4">
+                    {selectedTopicFilter && (
+                      <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-150 rounded-2xl p-4 mb-4 text-xs font-bold text-indigo-900 select-none">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                          <span>Filtering by Topic: </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-700 font-black uppercase">
+                            #{selectedTopicFilter}
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => setSelectedTopicFilter(null)}
+                          className="px-3 py-1.5 rounded-xl border border-indigo-200 text-indigo-650 hover:bg-indigo-100 bg-white shadow-xs transition-all cursor-pointer font-black"
+                        >
+                          Clear Filter
+                        </button>
+                      </div>
+                    )}
+                    
+                    {(() => {
+                      const filteredEntries = entries
+                        .map((entry, index) => ({ entry, index }))
+                        .filter(({ entry }) => {
+                          if (!selectedTopicFilter) return true;
+                          const topic = detectTopic(entry);
+                          return topic.toLowerCase() === selectedTopicFilter.toLowerCase();
+                        });
 
-                    return (
+                      if (filteredEntries.length === 0) {
+                        return (
+                          <div className="bg-slate-50 border border-slate-200/60 rounded-3xl p-10 text-center select-none shadow-sm">
+                            <p className="text-gray-500 text-sm font-semibold">No cells found for topic <strong>#{selectedTopicFilter}</strong>.</p>
+                            <button 
+                              onClick={() => setSelectedTopicFilter(null)}
+                              className="mt-3 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-650 text-white hover:bg-indigo-750 transition-colors cursor-pointer"
+                            >
+                              Show All Cells
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return filteredEntries.map(({ entry, index }, filteredIdx) => {
+                        const prevObj = filteredEntries[filteredIdx - 1];
+                        const prevEntry = prevObj ? prevObj.entry : null;
+                        const currentSource = entry.source || 'AI Assistant';
+                        const prevSource = prevEntry ? (prevEntry.source || 'AI Assistant') : null;
+                        const isSameGroup = prevEntry && prevEntry.timestamp === entry.timestamp && prevSource === currentSource;
+
+                        return (
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -955,117 +1520,231 @@ const NotebookTimeline = () => {
                           </div>
                         ) : (
                           <div className="mt-2">
-                            {entry.type === 'text' && (
-                              <div className="prose prose-indigo prose-sm sm:prose-base max-w-4xl prose-pre:overflow-x-auto prose-pre:max-w-full text-gray-800 leading-relaxed font-medium">
-                                <ReactMarkdown>{entry.content}</ReactMarkdown>
-                              </div>
-                            )}
-
-                            {entry.type === 'code' && (
-                              <div className="space-y-4 mt-2">
-                                <div className="bg-white border border-gray-200 rounded-xl relative group/notebook-cell shadow-sm focus-within:border-gray-300 focus-within:shadow-md transition-all">
-                                  
-                                  {/* Top Bar with Language and Run Button */}
-                                  <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-                                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{entry.language || 'Code'}</span>
-                                    <div className="flex gap-2">
+                            {entry.type === 'text' && (() => {
+                              const cellTopic = detectTopic(entry);
+                              return (
+                                <div className="space-y-2 select-text">
+                                  <div className="flex flex-wrap items-center gap-2 text-xs select-none">
+                                    <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200/50 shadow-xs">
+                                      #{index + 1}
+                                    </span>
+                                    <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">
+                                      Markdown Note
+                                    </span>
+                                    {cellTopic && (
                                       <button 
-                                        onClick={() => handleGenerateExample(entry.id)}
-                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition-colors"
+                                        onClick={() => setSelectedTopicFilter(cellTopic)}
+                                        className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100/60 text-indigo-700 text-[10px] font-black uppercase hover:bg-indigo-100 transition-colors cursor-pointer"
+                                        title={`Filter cells by #${cellTopic}`}
                                       >
-                                        <Brain className="w-3 h-3" /> Explain
+                                        #{cellTopic}
                                       </button>
-                                      <button 
-                                        onClick={() => runNotebookEntry(entry.id, entry.content, entry.language || 'python')}
-                                        disabled={entry.isRunning}
-                                        className="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
-                                      >
-                                        {entry.isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <PlayCircle className="w-3 h-3" />} Run
-                                      </button>
-                                    </div>
+                                    )}
                                   </div>
-
-                                  {/* Editor */}
-                                  <div className="w-full py-2">
-                                    <div id={`notebook-monaco-container-${entry.id}`} className="w-full min-h-[40px]">
-                                      <Editor
-                                        path={`notebook-cell-${entry.id}`}
-                                        height="100%"
-                                        language={entry.language?.toLowerCase() === 'c' ? 'c' : 'python'}
-                                        value={entry.content}
-                                        onChange={(val) => {
-                                           setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, content: val } : e));
-                                           updateNotebookEntry(currentUser.uid, day || '1', entry.id, { content: val }).catch(console.error);
-                                        }}
-                                        onMount={(editor) => {
-                                          const updateHeight = () => {
-                                            const contentHeight = Math.min(600, Math.max(40, editor.getContentHeight()));
-                                            const container = document.getElementById(`notebook-monaco-container-${entry.id}`);
-                                            if (container) {
-                                              container.style.height = `${contentHeight}px`;
-                                              editor.layout();
-                                            }
-                                          };
-                                          editor.onDidContentSizeChange(updateHeight);
-                                          updateHeight();
-                                        }}
-                                        options={{
-                                          minimap: { enabled: false },
-                                          scrollBeyondLastLine: false,
-                                          fontSize: 14,
-                                          lineHeight: 1.6,
-                                          padding: { top: 8, bottom: 8 },
-                                          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                          renderLineHighlight: "none",
-                                          hideCursorInOverviewRuler: true,
-                                          overviewRulerBorder: false,
-                                          scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-                                          wordWrap: 'on',
-                                          automaticLayout: true,
-                                          fixedOverflowWidgets: true
-                                        }}
-                                      />
-                                    </div>
+                                  <div className="prose prose-indigo prose-sm sm:prose-base max-w-4xl prose-pre:overflow-x-auto prose-pre:max-w-full text-gray-800 leading-relaxed font-medium">
+                                    <ReactMarkdown>{entry.content}</ReactMarkdown>
                                   </div>
                                 </div>
+                              );
+                            })()}
 
-                                {/* Output Box */}
-                                {entry.output && (
-                                  <div className={`rounded-xl p-4 overflow-x-auto text-[13px] font-mono shadow-sm flex-1 max-h-[300px] custom-scrollbar border ${
-                                    entry.output.toLowerCase().includes('error') || entry.output.toLowerCase().includes('traceback') 
-                                      ? 'bg-red-50 text-red-700 border-red-200' 
-                                      : 'bg-white text-gray-700 border-gray-200'
-                                  }`}>
-                                    <pre className="custom-scrollbar whitespace-pre-wrap"><code className="block">{entry.output}</code></pre>
-                                  </div>
-                                )}
+                            {entry.type === 'code' && (() => {
+                              const cellTopic = detectTopic(entry);
+                              return (
+                                <div className="space-y-4 mt-2">
+                                  <div className="bg-white border border-gray-200 rounded-xl relative group/notebook-cell shadow-sm focus-within:border-gray-300 focus-within:shadow-md transition-all">
+                                    
+                                    {/* Top Bar with Language and Run Button */}
+                                    <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                                      <div className="flex items-center gap-2 select-none">
+                                        <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                          #{index + 1}
+                                        </span>
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{entry.language || 'Code'}</span>
+                                        {cellTopic && (
+                                          <button 
+                                            onClick={() => setSelectedTopicFilter(cellTopic)}
+                                            className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-indigo-700 text-[9.5px] font-black uppercase hover:bg-indigo-100 transition-colors cursor-pointer"
+                                            title={`Filter cells by #${cellTopic}`}
+                                          >
+                                            #{cellTopic}
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-2">
+                                        {(() => {
+                                          const localCacheData = getLocalCachedExplanation(currentUser?.uid, entry.content);
+                                          const isCached = !!entry.aiExample || !!localCacheData;
+                                          return (
+                                            <button 
+                                              onClick={() => handleGenerateExample(entry.id)}
+                                              className={`text-xs font-bold flex items-center gap-1 px-2.5 py-1 rounded transition-colors shadow-sm ${
+                                                isCached
+                                                  ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250'
+                                                  : 'text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-transparent'
+                                              }`}
+                                              title={isCached ? "Cached in Storebase (0 tokens, instant replay)" : "Explain this code step-by-step (uses Groq tokens)"}
+                                            >
+                                              {isCached ? (
+                                                <>
+                                                  <Sparkles className="w-3 h-3 text-emerald-600 animate-pulse" /> ⚡ Fast Replay
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Brain className="w-3 h-3" /> Explain
+                                                </>
+                                              )}
+                                            </button>
+                                          );
+                                        })()}
+                                        <button 
+                                          onClick={() => runNotebookEntry(entry.id, entry.content, entry.language || 'python')}
+                                          disabled={entry.isRunning}
+                                          className="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors animate-pulse"
+                                        >
+                                          {entry.isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <PlayCircle className="w-3 h-3" />} Run
+                                        </button>
+                                      </div>
+                                    </div>
 
-                                {/* AI Example Section */}
-                                {entry.aiExample && (
-                                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-widest mb-1">
-                                      <Brain className="w-4 h-4 text-indigo-600" /> AI Explanation
-                                    </div>
-                                    <div className="text-[13px] leading-snug text-indigo-900 whitespace-pre-wrap [&>p]:mb-2 [&>h1]:mb-2 [&>h1]:text-sm [&>h2]:mb-2 [&>h2]:text-sm [&>h3]:mb-2 [&>h3]:text-sm [&>ul]:mb-2 [&>ul]:pl-4 [&>ul]:list-disc [&>ol]:mb-2 [&>ol]:pl-4 [&>ol]:list-decimal [&>pre]:mb-2">
-                                      <ReactMarkdown>{entry.aiExample}</ReactMarkdown>
+                                    {/* Editor */}
+                                    <div className="w-full py-2">
+                                      <div id={`notebook-monaco-container-${entry.id}`} className="w-full min-h-[40px]">
+                                        <Editor
+                                          path={`notebook-cell-${entry.id}`}
+                                          height="100%"
+                                          language={entry.language?.toLowerCase() === 'c' ? 'c' : 'python'}
+                                          value={entry.content}
+                                          onChange={(val) => {
+                                             setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, content: val, aiExample: null } : e));
+                                             updateNotebookEntry(currentUser.uid, day || '1', entry.id, { content: val, aiExample: null }).catch(console.error);
+                                          }}
+                                          onMount={(editor) => {
+                                            const updateHeight = () => {
+                                              const contentHeight = Math.min(600, Math.max(40, editor.getContentHeight()));
+                                              const container = document.getElementById(`notebook-monaco-container-${entry.id}`);
+                                              if (container) {
+                                                container.style.height = `${contentHeight}px`;
+                                                editor.layout();
+                                              }
+                                            };
+                                            editor.onDidContentSizeChange(updateHeight);
+                                            updateHeight();
+                                          }}
+                                          options={{
+                                            minimap: { enabled: false },
+                                            scrollBeyondLastLine: false,
+                                            fontSize: 14,
+                                            lineHeight: 1.6,
+                                            padding: { top: 8, bottom: 8 },
+                                            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                            renderLineHighlight: "none",
+                                            hideCursorInOverviewRuler: true,
+                                            overviewRulerBorder: false,
+                                            scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                                            wordWrap: 'on',
+                                            automaticLayout: true,
+                                            fixedOverflowWidgets: true
+                                          }}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
-                                )}
-                                
-                                {entry.isGeneratingExample && (
-                                   <div className="flex items-center gap-3 text-indigo-600 font-bold text-sm py-2">
-                                     <Loader2 className="w-4 h-4 animate-spin" /> AI is analyzing the code...
-                                   </div>
-                                )}
-                              </div>
-                            )}
+
+                                  {/* Standard Input for Notebook Entries - Colab-style Dynamic Prompts */}
+                                  {entry.awaitingInput && (
+                                    <div className="w-full border border-gray-200 bg-gray-50 flex flex-col rounded-xl overflow-hidden p-4 gap-3 mt-2 shadow-inner">
+                                      <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-1">
+                                        <Terminal className="w-3.5 h-3.5 text-indigo-500" /> Dynamic Standard Input (stdin)
+                                      </div>
+                                      <div className="flex flex-col gap-2.5">
+                                        {entry.inputPrompts?.map((prompt, promptIdx) => (
+                                          <div key={promptIdx} className="flex items-center gap-3 font-mono text-[13.5px] bg-white border border-gray-200 rounded-lg px-3 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
+                                            <span className="text-gray-600 font-semibold select-none">{prompt}</span>
+                                            <input
+                                              type="text"
+                                              value={entry.inputValues?.[promptIdx] || ''}
+                                              autoFocus={promptIdx === (entry.currentPromptIndex || 0)}
+                                              disabled={promptIdx !== (entry.currentPromptIndex || 0)}
+                                              placeholder={promptIdx === (entry.currentPromptIndex || 0) ? "Type value and press Enter..." : ""}
+                                              onChange={(e) => {
+                                                const newVals = [...(entry.inputValues || [])];
+                                                newVals[promptIdx] = e.target.value;
+                                                setEntries(prev => prev.map(ent => ent.id === entry.id ? { ...ent, inputValues: newVals } : ent));
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  e.preventDefault();
+                                                  const currentIdx = entry.currentPromptIndex || 0;
+                                                  if (currentIdx < entry.inputPrompts.length - 1) {
+                                                    setEntries(prev => prev.map(ent => ent.id === entry.id ? { ...ent, currentPromptIndex: currentIdx + 1 } : ent));
+                                                  } else {
+                                                    submitNotebookEntryInput(entry.id, entry.content, entry.language || 'python', entry.inputValues || []);
+                                                  }
+                                                }
+                                              }}
+                                              className="flex-1 bg-transparent border-none outline-none text-gray-900 font-bold"
+                                            />
+                                            {promptIdx === (entry.currentPromptIndex || 0) && (
+                                              <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 shadow-sm animate-pulse">↵ Enter</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Output Box */}
+                                  {entry.output && (
+                                    <div className={`rounded-xl p-4 overflow-x-auto text-[13px] font-mono shadow-sm flex-1 max-h-[300px] custom-scrollbar border ${
+                                      entry.output.toLowerCase().includes('error') || entry.output.toLowerCase().includes('traceback') 
+                                        ? 'bg-red-50 text-red-700 border-red-200' 
+                                        : 'bg-white text-gray-700 border-gray-200'
+                                    }`}>
+                                      <pre className="custom-scrollbar whitespace-pre-wrap"><code className="block">{entry.output}</code></pre>
+                                    </div>
+                                  )}
+
+                                  {activeExplanationId === entry.id && (
+                                    <div 
+                                      onClick={() => setActiveExplanationId(null)}
+                                      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm select-none animate-fade-in"
+                                    >
+                                      <div 
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full max-w-6xl bg-white rounded-[24px] shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col"
+                                      >
+                                        <InteractiveAiExplanation 
+                                          aiExample={entry.aiExample} 
+                                          codeContent={entry.content}
+                                          isGenerating={entry.isGeneratingExample}
+                                          accentColor={userData?.accentColor || '#6366f1'} 
+                                          onFeedback={(feedback) => handleRegenerateWithFeedback(entry.id, feedback)}
+                                          onClose={() => {
+                                            setActiveExplanationId(null);
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {entry.isGeneratingExample && (
+                                     <div className="flex items-center gap-3 text-indigo-600 font-bold text-sm py-2">
+                                       <Loader2 className="w-4 h-4 animate-spin" /> AI is analyzing the code...
+                                     </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
                     </motion.div>
                   );
-                })
-              )}
+                });
+              })()}
+            </div>
+          )}
 
                 {/* Analyzing State indicator (Skeleton Loader) */}
                 {isAnalyzing && (

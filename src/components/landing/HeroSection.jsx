@@ -81,10 +81,10 @@ const HeroSection = () => {
               Start Free
               <ArrowRight className="w-5 h-5 ml-2" />
             </Link>
-            <button className="px-8 py-4 bg-gray-50 border border-gray-200 text-[#111827] rounded-2xl font-bold text-lg flex items-center justify-center hover:bg-gray-100 backdrop-blur-md transition-all group">
+            <Link to="/try" className="px-8 py-4 bg-gray-50 border border-gray-200 text-[#111827] rounded-2xl font-bold text-lg flex items-center justify-center hover:bg-gray-100 backdrop-blur-md transition-all group">
               <Play className="w-5 h-5 mr-2 text-indigo-400 group-hover:scale-110 transition-transform" />
-              Watch Demo
-            </button>
+              Try visualizer demo
+            </Link>
           </motion.div>
           
           <motion.div 
