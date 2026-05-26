@@ -1619,7 +1619,7 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                                              setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, content: val, aiExample: null } : e));
                                              updateNotebookEntry(currentUser.uid, day || '1', entry.id, { content: val, aiExample: null }).catch(console.error);
                                           }}
-                                          onMount={(editor) => {
+                                          onMount={(editor, monaco) => {
                                             const updateHeight = () => {
                                               const contentHeight = Math.min(600, Math.max(40, editor.getContentHeight()));
                                               const container = document.getElementById(`notebook-monaco-container-${entry.id}`);
@@ -1630,6 +1630,10 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                                             };
                                             editor.onDidContentSizeChange(updateHeight);
                                             updateHeight();
+                                            
+                                            editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => {
+                                              runNotebookEntry(entry.id, editor.getValue(), entry.language || 'python');
+                                            });
                                           }}
                                           options={{
                                             minimap: { enabled: false },
