@@ -32,7 +32,8 @@ const parseInputPrompts = (code, language) => {
     if (prompts.length === 0 && totalPromptsNeeded === 0) {
       prompts.push("Enter input: ");
     } else {
-      for (let i = prompts.length; i < prompts.length + totalPromptsNeeded; i++) {
+      const targetLength = prompts.length + totalPromptsNeeded;
+      for (let i = prompts.length; i < targetLength; i++) {
         prompts.push("Enter input: ");
       }
     }
