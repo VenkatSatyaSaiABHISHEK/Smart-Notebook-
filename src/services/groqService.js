@@ -1,4 +1,28 @@
+import { auth, db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+
 export const processWithGroq = async (text, task = "format") => {
+  // Check token limit before calling Groq API
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        const userData = snap.data();
+        const tokensUsed = userData.tokensUsed || 0;
+        if (tokensUsed >= 50000) {
+          throw new Error("Daily Groq token limit reached (50,000 tokens). Please wait for it to reset.");
+        }
+      }
+    } catch (err) {
+      if (err.message.includes("Daily Groq token limit reached")) {
+        throw err;
+      }
+      console.error("Failed to check user token budget in groqService:", err);
+    }
+  }
+
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("Groq API key not found in environment variables.");
 

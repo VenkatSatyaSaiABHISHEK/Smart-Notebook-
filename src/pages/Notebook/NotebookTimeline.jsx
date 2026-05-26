@@ -131,6 +131,14 @@ const NotebookTimeline = () => {
     }
   };
 
+  const getHoursUntilReset = () => {
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0); // Next midnight
+    const diffMs = midnight.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60));
+  };
+
   // Timetable State
   const [timetableTasks, setTimetableTasks] = useState([
     { id: 1, time: '7AM-8AM', title: 'Doubt Clarification', desc: 'TTL Mentoring by Anand PAG Mentors' },
@@ -249,7 +257,7 @@ const NotebookTimeline = () => {
 
   const handleAutoAIErrorExplain = async (id, code, errorMsg) => {
     if ((userData?.tokensUsed || 0) >= 50000) {
-      updateCell(id, { aiResult: "⚠️ **Daily Groq limit completed.** Please wait for it to reset." });
+      updateCell(id, { aiResult: `⚠️ **Daily Groq limit completed.** Please wait ${getHoursUntilReset()} hours to reset.` });
       return;
     }
     updateCell(id, { isCorrecting: true });
@@ -341,7 +349,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
   const handleAskAI = async (id, code) => {
     if (!code.trim()) return;
     if ((userData?.tokensUsed || 0) >= 50000) {
-      alert("⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait for this to reset before calling AI features.");
+      alert(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours for this to reset.`);
       return;
     }
     updateCell(id, { isCorrecting: true });
@@ -427,7 +435,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
       const lowerOut = outText.toLowerCase();
       if (lowerOut.includes('error') || lowerOut.includes('traceback') || lowerOut.includes('exception')) {
         if ((userData?.tokensUsed || 0) >= 50000) {
-          aiResultUpdate = "⚠️ **Daily Groq limit completed.** Please wait for it to reset.";
+          aiResultUpdate = `⚠️ **Daily Groq limit completed.** Please wait ${getHoursUntilReset()} hours to reset.`;
         } else {
           const prompt = `I got an error running this ${lang} code:
 
@@ -468,7 +476,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
       
       // Auto explain error
       if ((userData?.tokensUsed || 0) >= 50000) {
-        const aiResultUpdate = "⚠️ **Daily Groq limit completed.** Please wait for it to reset.";
+        const aiResultUpdate = `⚠️ **Daily Groq limit completed.** Please wait ${getHoursUntilReset()} hours to reset.`;
         setEntries(prev => prev.map(entry => 
           entry.id === id ? { ...entry, aiExample: aiResultUpdate } : entry
         ));
@@ -570,7 +578,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
     const file = e.target.files[0];
     if (!file) return;
     if ((userData?.tokensUsed || 0) >= 50000) {
-      alert("⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait for this to reset before calling AI features.");
+      alert(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours for this to reset.`);
       e.target.value = null;
       return;
     }
@@ -600,6 +608,10 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
           }
 
           for (let i = 0; i < chunks.length; i++) {
+            if ((userData?.tokensUsed || 0) >= 50000) {
+              alert(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours to reset. Remaining chunks skipped.`);
+              break;
+            }
             setAnalysisStatus(`AI is analyzing PDF chunk ${i + 1} of ${chunks.length}...`);
             const chunkText = chunks[i];
             const dataToProcess = "Format and extract the blocks from this PDF part:\\n\\n" + chunkText;
@@ -677,7 +689,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
 
     const isColab = type === 'colab' || dataToProcess.includes('colab.research.google.com');
     if (!isColab && (userData?.tokensUsed || 0) >= 50000) {
-      alert("⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait for this to reset before calling AI features.");
+      alert(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours for this to reset.`);
       return;
     }
 
@@ -853,11 +865,10 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
       console.error("Cache check failed:", e);
     }
 
-    // Check token limit before calling Groq
     const tokenLimit = 50000;
     const currentUsed = userData?.tokensUsed || 0;
     if (currentUsed >= tokenLimit) {
-      alert("⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait for this to reset before calling AI features.");
+      alert(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours for this to reset.`);
       setActiveExplanationId(null); // Close modal if blocked
       return;
     }
@@ -896,7 +907,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
 
   const handleRegenerateWithFeedback = async (entryId, feedback) => {
     if ((userData?.tokensUsed || 0) >= 50000) {
-      alert("⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait for this to reset before calling AI features.");
+      alert(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours for this to reset.`);
       return;
     }
     setEntries(prev => prev.map(entry => 
@@ -1054,7 +1065,7 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                     </div>
                     {(userData?.tokensUsed || 0) >= 50000 && (
                       <div className="text-[10px] text-rose-450 text-rose-400 font-bold bg-rose-950/20 border border-rose-900/35 rounded-lg p-2.5 mt-2 leading-snug">
-                        ⚠️ Limit reached! Please wait for it to reset. AI services are temporarily disabled.
+                        ⚠️ Daily Groq limit completed. Please wait {getHoursUntilReset()} hours to reset. AI services are temporarily disabled.
                       </div>
                     )}
                   </div>

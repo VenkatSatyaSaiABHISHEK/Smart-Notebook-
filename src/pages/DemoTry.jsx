@@ -19,6 +19,7 @@ import { db } from '../config/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { processWithGroq } from '../services/groqService';
 import InteractiveAiExplanation from '../components/InteractiveAiExplanation';
+import { useAuth } from '../contexts/AuthContext';
 
 const DEMO_CODES = {
   fibonacci: `def fin(n):
@@ -50,6 +51,7 @@ print(sum_numbers(5))`
 
 const DemoTry = () => {
   const navigate = useNavigate();
+  const { userData } = useAuth() || {};
   const [code, setCode] = useState(DEMO_CODES.fibonacci);
   const [triesLeft, setTriesLeft] = useState(3);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -101,6 +103,19 @@ const DemoTry = () => {
   const handleVisualize = async () => {
     if (triesLeft <= 0) {
       setErrorMessage("You've used all 3 free tries on this device. Sign up for free to get unlimited runs!");
+      return;
+    }
+
+    if (userData && (userData.tokensUsed || 0) >= 50000) {
+      const getHoursUntilReset = () => {
+        const now = new Date();
+        const midnight = new Date();
+        midnight.setHours(24, 0, 0, 0); // Next midnight
+        const diffMs = midnight.getTime() - now.getTime();
+        return Math.ceil(diffMs / (1000 * 60 * 60));
+      };
+      setErrorMessage(`⚠️ Daily Groq Token Limit Reached! You have reached your daily budget of 50,000 tokens. Please wait ${getHoursUntilReset()} hours for this to reset.`);
+      setShowVisualizer(false);
       return;
     }
 
