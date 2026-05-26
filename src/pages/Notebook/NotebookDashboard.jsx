@@ -15,7 +15,7 @@ const NotebookDashboard = () => {
 
   const handleShare = () => {
     if (userData?.uid) {
-      navigator.clipboard.writeText(`${window.location.origin}/shared-notebook/${userData.uid}`);
+      navigator.clipboard.writeText(`${window.location.origin}/#/shared-notebook/${userData.uid}`);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }

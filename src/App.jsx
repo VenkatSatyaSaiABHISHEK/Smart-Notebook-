@@ -60,6 +60,18 @@ function App() {
   const [theme, setTheme] = React.useState('light');
 
   useEffect(() => {
+    // Redirect legacy non-hash shared notebook links to HashRouter-compatible URLs
+    const path = window.location.pathname;
+    if (path.includes('/shared-notebook/')) {
+      const parts = path.split('/shared-notebook/');
+      const userId = parts[parts.length - 1];
+      if (userId) {
+        window.location.replace(`${window.location.origin}/#/shared-notebook/${userId}`);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
