@@ -37,6 +37,7 @@ const PythonTutorial = () => {
   const [hasExecuted, setHasExecuted] = useState(false);
   const [freePlay, setFreePlay] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
+  const [showLockModal, setShowLockModal] = useState(false);
 
   // Grouped by Phase
   const phases = [
@@ -947,7 +948,7 @@ print("AI Model Training Completed successfully!")`,
   const handleTopicSelect = (topicId) => {
     // If not freePlay, enforce sequence locks: topic is locked if its predecessor is not completed
     if (!freePlay && topicId > 1 && !completedTopics.has(topicId - 1)) {
-      alert("🔒 Complete the previous topic to unlock this quest!");
+      setShowLockModal(true);
       return;
     }
     setActiveTopicId(topicId);
@@ -1267,6 +1268,47 @@ print("AI Model Training Completed successfully!")`,
         </div>
 
       </div>
+
+      {/* Custom Lock Overlay Modal */}
+      <AnimatePresence>
+        {showLockModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop Blur */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLockModal(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+            />
+            
+            {/* Modal Card */}
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 15 }}
+              transition={{ type: "spring", stiffness: 380, damping: 26 }}
+              className="bg-white border border-gray-250 rounded-[28px] p-6 shadow-2xl relative z-10 w-full max-w-sm text-center space-y-4"
+            >
+              <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-100 text-amber-500 flex items-center justify-center mx-auto shadow-sm">
+                <Lock className="w-6 h-6 animate-bounce" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-black text-gray-900 text-lg">Quest Level Locked!</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Complete the previous topic along the road map to unlock this quest and progress further!
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLockModal(false)}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer"
+              >
+                Understood
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
