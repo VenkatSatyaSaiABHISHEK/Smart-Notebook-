@@ -780,7 +780,10 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
         } catch (err) {
           console.error("Groq JSON Error:", err);
           newEntryData.type = 'text';
-          newEntryData.content = dataToProcess; 
+          newEntryData.content = type === 'photo' 
+            ? `⚠️ Failed to run OCR on image. Error: ${err.message}` 
+            : dataToProcess;
+          newEntryData.source = type === 'photo' ? 'Image OCR (Failed)' : 'Text Note';
         }
       }
 
