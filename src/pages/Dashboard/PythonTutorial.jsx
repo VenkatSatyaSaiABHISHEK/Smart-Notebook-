@@ -19,7 +19,12 @@ import {
   Award,
   Zap,
   ChevronRight,
-  Check
+  Check,
+  Heart,
+  HelpCircle,
+  AlertTriangle,
+  RotateCcw,
+  ArrowLeft
 } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -39,7 +44,312 @@ const PythonTutorial = () => {
   const [confettiActive, setConfettiActive] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
 
-  // Grouped by Phase
+  // Gamified Quiz state
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizLives, setQuizLives] = useState(3);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quizFeedback, setQuizFeedback] = useState(""); // "correct", "incorrect", or ""
+  const [hasReadLesson, setHasReadLesson] = useState(false);
+
+  // Step-by-Step Visualizer state for Exam Challenge
+  const [showTrace, setShowTrace] = useState(false);
+  const [traceStep, setTraceStep] = useState(0);
+
+  // Reset lesson read & trace states when active topic changes
+  useEffect(() => {
+    setHasReadLesson(false);
+    setShowTrace(false);
+    setTraceStep(0);
+  }, [activeTopicId]);
+
+  // Flat list of topics for easy lookup
+  const getQuizForTopic = (id) => {
+    const quizzes = {
+      1: {
+        question: "Which of the following is true about Python?",
+        options: [
+          "A. It is compiled only and runs close to hardware.",
+          "B. It is an interpreted, high-level language.",
+          "C. It does not support Object-Oriented programming.",
+          "D. It requires manual variable memory declarations."
+        ],
+        correct: "B. It is an interpreted, high-level language."
+      },
+      2: {
+        question: "What is the purpose of indentation in Python?",
+        options: [
+          "A. It is optional and only used for code formatting.",
+          "B. It tells the interpreter the variable data types.",
+          "C. It defines code blocks (like loops or functions) instead of brackets.",
+          "D. It speeds up standard compiler execution."
+        ],
+        correct: "C. It defines code blocks (like loops or functions) instead of brackets."
+      },
+      3: {
+        question: "What is the output of type(10.5) in Python?",
+        options: [
+          "A. <class 'int'>",
+          "B. <class 'float'>",
+          "C. <class 'double'>",
+          "D. <class 'complex'>"
+        ],
+        correct: "B. <class 'float'>"
+      },
+      4: {
+        question: "Which built-in function reads console inputs as a string in Python?",
+        options: [
+          "A. read()",
+          "B. get_string()",
+          "C. input()",
+          "D. scanf()"
+        ],
+        correct: "C. input()"
+      },
+      5: {
+        question: "How do you convert the string variable age = '20' into an integer?",
+        options: [
+          "A. age = str(age)",
+          "B. age = int(age)",
+          "C. age = float(age)",
+          "D. age = integer(age)"
+        ],
+        correct: "B. age = int(age)"
+      },
+      6: {
+        question: "What does the floor division operator // return?",
+        options: [
+          "A. Remainder of division",
+          "B. Quotient as float decimal",
+          "C. Quotient as integer (rounded down)",
+          "D. Exponentiation of first term"
+        ],
+        correct: "C. Quotient as integer (rounded down)"
+      },
+      7: {
+        question: "When does the block under an 'if' statement execute?",
+        options: [
+          "A. Only if the boolean condition is False.",
+          "B. Only if the boolean condition is True.",
+          "C. Always at least once.",
+          "D. Never (it is a placeholder)."
+        ],
+        correct: "B. Only if the boolean condition is True."
+      },
+      8: {
+        question: "If the 'if' condition is False, which block runs in an if-else statement?",
+        options: [
+          "A. if block",
+          "B. else block",
+          "C. Both blocks",
+          "D. Neither block"
+        ],
+        correct: "B. else block"
+      },
+      9: {
+        question: "In an if-elif-else chain, how many conditional blocks can execute at most?",
+        options: [
+          "A. All of them",
+          "B. Exactly two",
+          "C. At most one",
+          "D. None of them"
+        ],
+        correct: "C. At most one"
+      },
+      10: {
+        question: "What is the output of list(range(1, 4))?",
+        options: [
+          "A. [1, 2, 3, 4]",
+          "B. [1, 2, 3]",
+          "C. [0, 1, 2, 3]",
+          "D. [1, 3]"
+        ],
+        correct: "B. [1, 2, 3]"
+      },
+      11: {
+        question: "What happens if a while loop condition never evaluates to False?",
+        options: [
+          "A. Runs once and returns None.",
+          "B. Throws a syntax compile error.",
+          "C. Creates an infinite loop.",
+          "D. Skips execution automatically."
+        ],
+        correct: "C. Creates an infinite loop."
+      },
+      12: {
+        question: "If an outer loop runs 3 times and an inner loop runs 3 times, how many total times does the inner loop body run?",
+        options: [
+          "A. 6 times",
+          "B. 9 times",
+          "C. 3 times",
+          "D. 1 time"
+        ],
+        correct: "B. 9 times"
+      },
+      13: {
+        question: "Which loop control keyword immediately exits the current loop?",
+        options: [
+          "A. continue",
+          "B. break",
+          "C. pass",
+          "D. exit"
+        ],
+        correct: "B. break"
+      },
+      14: {
+        question: "What is the output of the string slice 'python'[1:3]?",
+        options: [
+          "A. 'py'",
+          "B. 'yt'",
+          "C. 'yth'",
+          "D. 'th'"
+        ],
+        correct: "B. 'yt'"
+      },
+      15: {
+        question: "Which method adds an element to the end of a list?",
+        options: [
+          "A. insert()",
+          "B. add()",
+          "C. append()",
+          "D. extend()"
+        ],
+        correct: "C. append()"
+      },
+      16: {
+        question: "Which of the following is true about Tuples?",
+        options: [
+          "A. They are mutable and can expand.",
+          "B. They are immutable and cannot be changed after creation.",
+          "C. They cannot be indexed.",
+          "D. They use square brackets [] instead of parentheses."
+        ],
+        correct: "B. They are immutable and cannot be changed after creation."
+      },
+      17: {
+        question: "Which set method is used to combine elements of two sets, keeping only unique values?",
+        options: [
+          "A. intersection()",
+          "B. difference()",
+          "C. union()",
+          "D. add()"
+        ],
+        correct: "C. union()"
+      },
+      18: {
+        question: "How do you retrieve keys of a dictionary?",
+        options: [
+          "A. dict.keys()",
+          "B. dict.values()",
+          "C. dict.items()",
+          "D. dict.get()"
+        ],
+        correct: "A. dict.keys()"
+      },
+      19: {
+        question: "How do you declare a custom function in Python?",
+        options: [
+          "A. function greet():",
+          "B. define greet():",
+          "C. def greet():",
+          "D. void greet():"
+        ],
+        correct: "C. def greet():"
+      },
+      20: {
+        question: "What is a lambda function in Python?",
+        options: [
+          "A. A recursive function that calls itself.",
+          "B. An anonymous, single-expression inline function.",
+          "C. A class constructor method.",
+          "D. A function with no return parameters."
+        ],
+        correct: "B. An anonymous, single-expression inline function."
+      }
+    };
+
+    return quizzes[id] || {
+      question: `What is the default operation behavior of topic level ${id}?`,
+      options: [
+        "A. Modifies variable scope variables.",
+        "B. Declares a new array object.",
+        "C. Extends functions or classes.",
+        "D. Runs standard python operation expressions."
+      ],
+      correct: "D. Runs standard python operation expressions."
+    };
+  };
+
+  const getExamChallengeForTopic = (id) => {
+    const challenges = {
+      9: {
+        title: "Find the largest of three numbers using conditionals.",
+        desc: "Teacher challenge: Write a Python program to compare variables a, b, and c, and store the maximum in variable 'largest'.",
+        code: [
+          "a, b, c = 12, 45, 23",
+          "if a >= b and a >= c:",
+          "    largest = a",
+          "elif b >= a and b >= c:",
+          "    largest = b",
+          "else:",
+          "    largest = c",
+          "print('Largest:', largest)"
+        ],
+        steps: [
+          { line: 1, log: "Initialize values: a = 12, b = 45, c = 23.", vars: { a: 12, b: 45, c: 23 } },
+          { line: 2, log: "Evaluate condition: is 12 >= 45 and 12 >= 23? (False and False) -> False. Move to next condition.", vars: { a: 12, b: 45, c: 23 } },
+          { line: 4, log: "Evaluate elif condition: is 45 >= 12 and 45 >= 23? (True and True) -> True! Enter block.", vars: { a: 12, b: 45, c: 23 } },
+          { line: 5, log: "Condition met: set largest = b = 45.", vars: { a: 12, b: 45, c: 23, largest: 45 } },
+          { line: 8, log: "Print results: 'Largest: 45'. Output displayed successfully.", vars: { a: 12, b: 45, c: 23, largest: 45 } }
+        ]
+      },
+      15: {
+        title: "Find the maximum element in a list.",
+        desc: "Teacher challenge: Write a program to iterate over a list 'arr' and find the largest number. Print 'Max: <value>'.",
+        code: [
+          "arr = [12, 3, 45, 8]",
+          "max_val = arr[0]",
+          "for x in arr:",
+          "    if x > max_val:",
+          "        max_val = x",
+          "print('Max:', max_val)"
+        ],
+        steps: [
+          { line: 1, log: "Initialize list array: arr = [12, 3, 45, 8].", vars: { arr: [12, 3, 45, 8] } },
+          { line: 2, log: "Set initial max_val = arr[0] = 12.", vars: { arr: [12, 3, 45, 8], max_val: 12 } },
+          { line: 3, log: "Loop iteration 1: examine x = 12.", vars: { arr: [12, 3, 45, 8], max_val: 12, x: 12 } },
+          { line: 4, log: "Compare: is x > max_val? (12 > 12) -> No. Skip update.", vars: { arr: [12, 3, 45, 8], max_val: 12, x: 12 } },
+          { line: 3, log: "Loop iteration 2: examine x = 3.", vars: { arr: [12, 3, 45, 8], max_val: 12, x: 3 } },
+          { line: 4, log: "Compare: is x > max_val? (3 > 12) -> No. Skip update.", vars: { arr: [12, 3, 45, 8], max_val: 12, x: 3 } },
+          { line: 3, log: "Loop iteration 3: examine x = 45.", vars: { arr: [12, 3, 45, 8], max_val: 12, x: 45 } },
+          { line: 4, log: "Compare: is x > max_val? (45 > 12) -> Yes! Enter block.", vars: { arr: [12, 3, 45, 8], max_val: 12, x: 45 } },
+          { line: 5, log: "Update maximum variable: max_val = 45.", vars: { arr: [12, 3, 45, 8], max_val: 45, x: 45 } },
+          { line: 3, log: "Loop iteration 4: examine x = 8.", vars: { arr: [12, 3, 45, 8], max_val: 45, x: 8 } },
+          { line: 4, log: "Compare: is x > max_val? (8 > 45) -> No. Skip update.", vars: { arr: [12, 3, 45, 8], max_val: 45, x: 8 } },
+          { line: 6, log: "Print statement executes: 'Max: 45'. Output displayed successfully.", vars: { arr: [12, 3, 45, 8], max_val: 45 } }
+        ]
+      }
+    };
+
+    return challenges[id] || {
+      title: `Write a program to demonstrate the functionality of Quest ${id}.`,
+      desc: "Teacher challenge: Write a Python program to perform standard operations and output results.",
+      code: [
+        "val1 = 10",
+        "val2 = 20",
+        "result = val1 + val2",
+        "print('Result:', result)"
+      ],
+      steps: [
+        { line: 1, log: "Setting up program variables.", vars: {} },
+        { line: 2, log: "Assign val1 = 10.", vars: { val1: 10 } },
+        { line: 3, log: "Assign val2 = 20.", vars: { val1: 10, val2: 20 } },
+        { line: 4, log: "Add parameters: result = 10 + 20 = 30.", vars: { val1: 10, val2: 20, result: 30 } },
+        { line: 5, log: "Print output: 'Result: 30'. Finished execution.", vars: { val1: 10, val2: 20, result: 30 } }
+      ]
+    };
+  };
+
+  // Flat list of topics
   const phases = [
     {
       id: 1,
@@ -887,6 +1197,9 @@ print("AI Model Training Completed successfully!")`,
   const allTopics = phases.flatMap(p => p.topics);
   const currentTopic = allTopics.find(t => t.id === activeTopicId) || allTopics[0];
 
+  const currentQuiz = getQuizForTopic(currentTopic.id);
+  const currentExamChallenge = getExamChallengeForTopic(currentTopic.id);
+
   // Load progress from Firestore or LocalStorage on mount
   useEffect(() => {
     const loadProgress = async () => {
@@ -970,47 +1283,82 @@ print("AI Model Training Completed successfully!")`,
     navigate('/notebook');
   };
 
-  const handleMarkAsCompleted = async () => {
-    if (completedTopics.has(currentTopic.id)) return;
-
-    // Trigger visual confetti burst
-    setConfettiActive(true);
-    setTimeout(() => setConfettiActive(false), 2000);
-
-    const newCompleted = new Set(completedTopics);
-    newCompleted.add(currentTopic.id);
-    setCompletedTopics(newCompleted);
-
-    const newXP = totalXP + 100;
-    setTotalXP(newXP);
-
-    // Save to LocalStorage
-    try {
-      localStorage.setItem('python_completed_topics', JSON.stringify(Array.from(newCompleted)));
-      localStorage.setItem('python_xp', newXP.toString());
-    } catch(e) {}
-
-    // Save to Firestore
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      try {
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, {
-          pythonCompleted: Array.from(newCompleted),
-          pythonXP: newXP
-        });
-      } catch (err) {
-        console.error("Failed to save progress to cloud:", err);
-      }
+  // Launch Quiz Modal
+  const handleStartQuiz = () => {
+    if (!hasReadLesson && !completedTopics.has(currentTopic.id)) {
+      alert("📚 Please read the topic details first and click the checkbox indicating you have understood the lesson!");
+      return;
     }
+    setQuizLives(3);
+    setSelectedOption(null);
+    setQuizFeedback("");
+    setShowQuizModal(true);
+  };
 
-    // Automatically focus next topic if exists
-    if (currentTopic.id < allTopics.length) {
+  // Submit Quiz Answer
+  const handleCheckAnswer = async () => {
+    if (!selectedOption) return;
+
+    if (selectedOption === currentQuiz.correct) {
+      setQuizFeedback("correct");
+      
+      // Perform save
+      const isAlreadyCompleted = completedTopics.has(currentTopic.id);
+      if (!isAlreadyCompleted) {
+        setConfettiActive(true);
+        setTimeout(() => setConfettiActive(false), 2000);
+
+        const newCompleted = new Set(completedTopics);
+        newCompleted.add(currentTopic.id);
+        setCompletedTopics(newCompleted);
+
+        const newXP = totalXP + 100;
+        setTotalXP(newXP);
+
+        // Save to LocalStorage
+        try {
+          localStorage.setItem('python_completed_topics', JSON.stringify(Array.from(newCompleted)));
+          localStorage.setItem('python_xp', newXP.toString());
+        } catch(e) {}
+
+        // Save to Firestore
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          try {
+            const userRef = doc(db, "users", currentUser.uid);
+            await updateDoc(userRef, {
+              pythonCompleted: Array.from(newCompleted),
+              pythonXP: newXP
+            });
+          } catch (err) {
+            console.error("Failed to save progress to cloud:", err);
+          }
+        }
+      }
+
+      // Close modal and focus next level after delay
       setTimeout(() => {
-        setActiveTopicId(currentTopic.id + 1);
-        setIsRunning(false);
-        setHasExecuted(false);
-      }, 1000);
+        setShowQuizModal(false);
+        if (currentTopic.id < allTopics.length) {
+          setActiveTopicId(currentTopic.id + 1);
+          setIsRunning(false);
+          setHasExecuted(false);
+        }
+      }, 1500);
+
+    } else {
+      setQuizFeedback("incorrect");
+      const nextLives = quizLives - 1;
+      setQuizLives(nextLives);
+      
+      if (nextLives <= 0) {
+        // Force the user to read the lesson again
+        setHasReadLesson(false);
+        setTimeout(() => {
+          setShowQuizModal(false);
+          alert("❌ Out of lives! Please read the tutorial again carefully to unlock the quiz.");
+        }, 1500);
+      }
     }
   };
 
@@ -1026,6 +1374,8 @@ print("AI Model Training Completed successfully!")`,
 
   const currentRank = getRank(totalXP);
   const RankIcon = currentRank.badge;
+
+  const currentTraceStep = currentExamChallenge.steps[traceStep];
 
   return (
     <div className="flex flex-col h-screen bg-[#f9fafb] font-sans">
@@ -1176,7 +1526,7 @@ print("AI Model Training Completed successfully!")`,
           <div className="max-w-[850px] mx-auto space-y-6">
             
             {/* active quest study block */}
-            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm flex justify-between items-start gap-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start gap-4">
               <div className="text-left space-y-2 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 border border-indigo-100 py-1 px-2.5 rounded-lg shadow-sm">
@@ -1186,23 +1536,159 @@ print("AI Model Training Completed successfully!")`,
                 </div>
                 <h2 className="text-2xl font-black text-gray-900 leading-snug">{currentTopic.name}</h2>
                 <p className="text-sm text-gray-500 leading-relaxed mt-2">{currentTopic.desc}</p>
+                
+                {/* Lesson read verification checkbox */}
+                {!completedTopics.has(currentTopic.id) && (
+                  <div className="flex items-center gap-2.5 pt-3 select-none">
+                    <input 
+                      type="checkbox" 
+                      id="read_check"
+                      checked={hasReadLesson}
+                      onChange={(e) => setHasReadLesson(e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <label htmlFor="read_check" className="text-xs font-bold text-gray-600 cursor-pointer">
+                      I have read and understood this lesson content
+                    </label>
+                  </div>
+                )}
               </div>
 
-              {/* Complete Topic Action Badge */}
-              <div className="shrink-0 flex flex-col items-center">
+              {/* Complete Topic Action Badge / Quiz Trigger */}
+              <div className="shrink-0 flex flex-col items-center pt-2 sm:pt-0">
                 {completedTopics.has(currentTopic.id) ? (
                   <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-150 rounded-2xl flex items-center gap-1.5 text-emerald-600 text-xs font-black uppercase tracking-wider shadow-sm select-none">
-                    <CheckCircle className="w-4 h-4 fill-emerald-500 text-white" /> Complete ✓
+                    <CheckCircle className="w-4 h-4 fill-emerald-500 text-white" /> Completed ✓
                   </div>
                 ) : (
                   <button
-                    onClick={handleMarkAsCompleted}
-                    className="px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:brightness-95 active:scale-98 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+                    onClick={handleStartQuiz}
+                    disabled={!hasReadLesson}
+                    className={`px-5 py-3 font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all cursor-pointer flex items-center gap-2 ${
+                      hasReadLesson 
+                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:brightness-95 active:scale-98' 
+                        : 'bg-gray-100 text-gray-400 border border-gray-200 shadow-none cursor-not-allowed'
+                    }`}
                   >
-                    <Trophy className="w-3.5 h-3.5 fill-white" /> Complete Topic (+100 XP)
+                    <Trophy className={`w-3.5 h-3.5 ${hasReadLesson ? 'fill-white' : 'text-gray-400'}`} /> Take Unlock Quiz (+100 XP)
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Classroom/Exam coding challenge visualizer */}
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex justify-between items-center border-b border-gray-150 pb-3">
+                <div>
+                  <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                    <Award className="w-5 h-5 text-indigo-500" /> Classroom Exam Challenge
+                  </h3>
+                  <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-0.5">Typical teacher exam questions & visual traces</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTrace(!showTrace);
+                    setTraceStep(0);
+                  }}
+                  className="px-4 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Activity className="w-4 h-4 text-indigo-500" /> {showTrace ? "Hide Visualizer" : "Show Visualizer"}
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-sm text-gray-900">{currentExamChallenge.title}</h4>
+                <p className="text-xs text-gray-500 leading-normal">{currentExamChallenge.desc}</p>
+              </div>
+
+              {/* RENDER STEP-BY-STEP VISUAL TRACER IF OPEN */}
+              {showTrace ? (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-3 animate-in fade-in duration-300">
+                  
+                  {/* Left: Code Box with active line */}
+                  <div className="md:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between min-h-[220px]">
+                    <div className="font-mono text-xs text-slate-350 space-y-1 select-none text-left">
+                      {currentExamChallenge.code.map((lineText, idx) => {
+                        const lineNum = idx + 1;
+                        const isLineActive = currentTraceStep.line === lineNum;
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`flex items-center w-full py-0.5 px-2 rounded transition-all ${
+                              isLineActive ? 'bg-indigo-500/20 border-l-3 border-indigo-500 text-white font-bold' : ''
+                            }`}
+                          >
+                            <span className="w-5 text-slate-600 text-right mr-3 font-semibold">{lineNum}</span>
+                            <pre className="whitespace-pre">{lineText}</pre>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Stepper buttons */}
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-800 shrink-0">
+                      <button
+                        onClick={() => traceStep > 0 && setTraceStep(traceStep - 1)}
+                        disabled={traceStep === 0}
+                        className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:text-white rounded-lg disabled:opacity-40 transition-opacity cursor-pointer text-xs font-bold"
+                      >
+                        Prev Step
+                      </button>
+                      <button
+                        onClick={() => traceStep < currentExamChallenge.steps.length - 1 && setTraceStep(traceStep + 1)}
+                        disabled={traceStep === currentExamChallenge.steps.length - 1}
+                        className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg disabled:opacity-40 transition-opacity cursor-pointer text-xs font-bold"
+                      >
+                        Next Step
+                      </button>
+                      <button
+                        onClick={() => setTraceStep(0)}
+                        className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-lg cursor-pointer ml-auto"
+                        title="Restart Trace"
+                      >
+                        <RotateCcw className="w-4.5 h-4.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right: State variables & Execution Logs */}
+                  <div className="md:col-span-6 space-y-4">
+                    {/* Variables watch */}
+                    <div className="bg-slate-50 border border-gray-200 rounded-2xl p-4 text-left">
+                      <h5 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <GitCommit className="w-3.5 h-3.5 text-indigo-500" /> Trace Variables
+                      </h5>
+                      <div className="divide-y divide-gray-150 font-mono text-xs">
+                        {Object.keys(currentTraceStep.vars).length > 0 ? (
+                          Object.entries(currentTraceStep.vars).map(([name, val], i) => (
+                            <div key={i} className="flex justify-between py-1.5">
+                              <span className="text-gray-500 font-semibold">{name}</span>
+                              <span className="text-gray-900 font-bold">{JSON.stringify(val)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-2 text-gray-400 italic text-center">No active variables</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Console log */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-left">
+                      <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <Terminal className="w-3.5 h-3.5 text-emerald-400" /> Trace Console Log
+                      </h5>
+                      <div className="font-mono text-xs text-emerald-400 min-h-[40px] flex items-center">
+                        <span>&gt; {currentTraceStep.log}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                <div className="border border-gray-150 rounded-2xl p-4 bg-slate-50/50 text-left font-mono text-xs overflow-x-auto select-all">
+                  <pre>{currentExamChallenge.code.join("\n")}</pre>
+                </div>
+              )}
             </div>
 
             {/* Code Block & Output Sandbox */}
@@ -1269,10 +1755,120 @@ print("AI Model Training Completed successfully!")`,
 
       </div>
 
+      {/* Gamified Quiz Popup Modal (Duolingo Style) */}
+      <AnimatePresence>
+        {showQuizModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            
+            {/* Backdrop Blur */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (quizFeedback !== "correct") {
+                  setShowQuizModal(false);
+                }
+              }}
+              className="absolute inset-0 bg-slate-950/65 backdrop-blur-xs"
+            />
+            
+            {/* Modal Card */}
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 15 }}
+              transition={{ type: "spring", stiffness: 380, damping: 26 }}
+              className="bg-white border border-gray-250 rounded-[32px] p-7 shadow-2xl relative z-10 w-full max-w-lg space-y-6"
+            >
+              
+              {/* Quiz Header: Level Info & Lives */}
+              <div className="flex justify-between items-center border-b border-gray-150 pb-3">
+                <span className="text-xs font-black uppercase text-indigo-500 tracking-wider">
+                  Level {currentTopic.id} Quest Unlock Quiz
+                </span>
+                
+                {/* Lives Hearts */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Heart 
+                      key={i} 
+                      className={`w-5 h-5 ${i < quizLives ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} 
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Question */}
+              <div className="space-y-2 text-left">
+                <h4 className="font-extrabold text-gray-800 text-base leading-relaxed">
+                  {currentQuiz.question}
+                </h4>
+              </div>
+
+              {/* Option List */}
+              <div className="space-y-2 text-left">
+                {currentQuiz.options.map((opt, i) => {
+                  const isSelected = selectedOption === opt;
+                  return (
+                    <button
+                      key={i}
+                      disabled={quizFeedback === "correct"}
+                      onClick={() => {
+                        setSelectedOption(opt);
+                        setQuizFeedback("");
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left text-sm font-bold transition-all cursor-pointer ${
+                        isSelected 
+                          ? 'border-indigo-500 bg-indigo-50/40 text-indigo-750 shadow-sm' 
+                          : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Feedback messages */}
+              {quizFeedback === "correct" && (
+                <div className="p-3 bg-emerald-50 border border-emerald-150 text-emerald-700 text-xs font-bold rounded-2xl text-left flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  <span>Correct answer! +100 XP gained, loading next level...</span>
+                </div>
+              )}
+              {quizFeedback === "incorrect" && (
+                <div className="p-3 bg-rose-50 border border-rose-150 text-rose-700 text-xs font-bold rounded-2xl text-left flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 animate-bounce" />
+                  <span>Wrong answer! Try again. Lives remaining: {quizLives}/3</span>
+                </div>
+              )}
+
+              {/* Action button */}
+              <div className="pt-2">
+                <button
+                  disabled={!selectedOption || quizFeedback === "correct"}
+                  onClick={handleCheckAnswer}
+                  className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-md transition-all active:scale-[0.98] cursor-pointer ${
+                    selectedOption && quizFeedback !== "correct"
+                      ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                      : 'bg-gray-100 text-gray-400 border border-gray-200 shadow-none cursor-not-allowed'
+                  }`}
+                >
+                  Submit Answer
+                </button>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Custom Lock Overlay Modal */}
       <AnimatePresence>
         {showLockModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            
             {/* Backdrop Blur */}
             <motion.div 
               initial={{ opacity: 0 }}
