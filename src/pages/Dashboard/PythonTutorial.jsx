@@ -24,7 +24,8 @@ import {
   HelpCircle,
   AlertTriangle,
   RotateCcw,
-  ArrowLeft
+  ArrowLeft,
+  GitCommit
 } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -264,6 +265,486 @@ const PythonTutorial = () => {
           "D. A function with no return parameters."
         ],
         correct: "B. An anonymous, single-expression inline function."
+      },
+      21: {
+        question: "How do you import a module in Python?",
+        options: [
+          "A. load math",
+          "B. include math",
+          "C. import math",
+          "D. require math"
+        ],
+        correct: "C. import math"
+      },
+      22: {
+        question: "How do you import a specific function (e.g. sqrt) from the math module?",
+        options: [
+          "A. import sqrt from math",
+          "B. from math import sqrt",
+          "C. import math.sqrt",
+          "D. get sqrt from math"
+        ],
+        correct: "B. from math import sqrt"
+      },
+      23: {
+        question: "Which block is used to catch exceptions and handle runtime errors?",
+        options: [
+          "A. catch:",
+          "B. error:",
+          "C. except:",
+          "D. handle:"
+        ],
+        correct: "C. except:"
+      },
+      24: {
+        question: "Which mode argument opens a file for reading in text mode?",
+        options: [
+          "A. 'w'",
+          "B. 'r'",
+          "C. 'a'",
+          "D. 'x'"
+        ],
+        correct: "B. 'r'"
+      },
+      25: {
+        question: "What is the difference between opening a file with 'w' versus 'a' mode?",
+        options: [
+          "A. 'w' appends, 'a' overwrites.",
+          "B. 'w' overwrites, 'a' appends.",
+          "C. 'w' is binary read, 'a' is text read.",
+          "D. There is no difference."
+        ],
+        correct: "B. 'w' overwrites, 'a' appends."
+      },
+      26: {
+        question: "What is a class in Python Object-Oriented Programming?",
+        options: [
+          "A. A specific instance containing runtime values.",
+          "B. A template blueprint for creating objects.",
+          "C. A list function that handles system arrays.",
+          "D. A special type of module library."
+        ],
+        correct: "B. A template blueprint for creating objects."
+      },
+      27: {
+        question: "How do you instantiate an object of a class named Student?",
+        options: [
+          "A. s = Student.new()",
+          "B. s = Student()",
+          "C. Student s = new Student()",
+          "D. s = create Student"
+        ],
+        correct: "B. s = Student()"
+      },
+      28: {
+        question: "Which method functions as the class constructor in Python?",
+        options: [
+          "A. def Student(self):",
+          "B. def constructor(self):",
+          "C. def __init__(self):",
+          "D. def __new__(self):"
+        ],
+        correct: "C. def __init__(self):"
+      },
+      29: {
+        question: "How does a class Child inherit from a class Parent in Python?",
+        options: [
+          "A. class Child inherits Parent:",
+          "B. class Child(Parent):",
+          "C. class Child extends Parent:",
+          "D. class Child implements Parent:"
+        ],
+        correct: "B. class Child(Parent):"
+      },
+      30: {
+        question: "What is Polymorphism in OOP?",
+        options: [
+          "A. Restricting direct modifications to variables.",
+          "B. Overloading functions with varying parameters inside a single module.",
+          "C. Having the same method name but different behavior across classes.",
+          "D. Creating private classes that cannot be accessed."
+        ],
+        correct: "C. Having the same method name but different behavior across classes."
+      },
+      31: {
+        question: "How do you define a private member variable in a Python class?",
+        options: [
+          "A. Prefix the variable with double underscores, e.g. __balance.",
+          "B. Prefix the variable with private, e.g. private_balance.",
+          "C. Annotate the variable with @private.",
+          "D. Put the variable inside a private scope block."
+        ],
+        correct: "A. Prefix the variable with double underscores, e.g. __balance."
+      },
+      32: {
+        question: "Which package provides helper classes for creating abstract base classes in Python?",
+        options: [
+          "A. oop",
+          "B. abstract",
+          "C. abc",
+          "D. base"
+        ],
+        correct: "C. abc"
+      },
+      33: {
+        question: "What is the list comprehension output of [x*2 for x in range(3)]?",
+        options: [
+          "A. [0, 2, 4]",
+          "B. [2, 4, 6]",
+          "C. [0, 1, 2]",
+          "D. [0, 4, 8]"
+        ],
+        correct: "A. [0, 2, 4]"
+      },
+      34: {
+        question: "Which keyword creates an anonymous, inline function in Python?",
+        options: [
+          "A. func",
+          "B. inline",
+          "C. lambda",
+          "D. def"
+        ],
+        correct: "C. lambda"
+      },
+      35: {
+        question: "What does the map() function return?",
+        options: [
+          "A. A list of processed output elements.",
+          "B. An iterator of map type applying function to all items.",
+          "C. A boolean indicating if mapping was successful.",
+          "D. A dictionary structure matching original indices."
+        ],
+        correct: "B. An iterator of map type applying function to all items."
+      },
+      36: {
+        question: "What is the purpose of the filter() function in Python?",
+        options: [
+          "A. To select elements from an iterable that return True for a function.",
+          "B. To sort elements according to list priorities.",
+          "C. To remove all duplicate numbers from arrays.",
+          "D. To modify data types of all items inside collections."
+        ],
+        correct: "A. To select elements from an iterable that return True for a function."
+      },
+      37: {
+        question: "Where is the reduce() function located in the Python standard library?",
+        options: [
+          "A. builtins",
+          "B. sys",
+          "C. functools",
+          "D. collections"
+        ],
+        correct: "C. functools"
+      },
+      38: {
+        question: "Which keyword yields values sequentially inside a Generator function?",
+        options: [
+          "A. return",
+          "B. yield",
+          "C. output",
+          "D. give"
+        ],
+        correct: "B. yield"
+      },
+      39: {
+        question: "What character prefix is used to annotate and apply a decorator on a function?",
+        options: [
+          "A. #",
+          "B. @",
+          "C. &",
+          "D. *"
+        ],
+        correct: "B. @"
+      },
+      40: {
+        question: "Which two methods must a custom Iterator object implement?",
+        options: [
+          "A. __init__() and __next__()",
+          "B. __iter__() and __next__()",
+          "C. __start__() and __stop__()",
+          "D. __getitem__() and __setitem__()"
+        ],
+        correct: "B. __iter__() and __next__()"
+      },
+      41: {
+        question: "What functions are used to push and pop from a list stack in LIFO order?",
+        options: [
+          "A. insert() and remove()",
+          "B. push() and pop()",
+          "C. append() and pop()",
+          "D. add() and delete()"
+        ],
+        correct: "C. append() and pop()"
+      },
+      42: {
+        question: "Which object from the collections module is ideal for implementing double-ended queues?",
+        options: [
+          "A. stack",
+          "B. deque",
+          "C. queue",
+          "D. arraylist"
+        ],
+        correct: "B. deque"
+      },
+      43: {
+        question: "What does a basic Linked List node contain?",
+        options: [
+          "A. Keys and hashes.",
+          "B. Data and a reference pointer to the next node.",
+          "C. Indentation levels and line numbers.",
+          "D. Left, right, and parent references."
+        ],
+        correct: "B. Data and a reference pointer to the next node."
+      },
+      44: {
+        question: "What is the single top-level node of a binary tree called?",
+        options: [
+          "A. Head",
+          "B. Leaf",
+          "C. Root",
+          "D. Branch"
+        ],
+        correct: "C. Root"
+      },
+      45: {
+        question: "In a Graph data structure, what are nodes and links called?",
+        options: [
+          "A. Lines and items.",
+          "B. Vertices and edges.",
+          "C. Roots and leaves.",
+          "D. Heads and tails."
+        ],
+        correct: "B. Vertices and edges."
+      },
+      46: {
+        question: "What is the time complexity of Binary Search on a sorted array?",
+        options: [
+          "A. O(N)",
+          "B. O(N log N)",
+          "C. O(log N)",
+          "D. O(1)"
+        ],
+        correct: "C. O(log N)"
+      },
+      47: {
+        question: "Which sorting algorithm repeatedly compares and swaps adjacent elements?",
+        options: [
+          "A. Merge Sort",
+          "B. Quick Sort",
+          "C. Bubble Sort",
+          "D. Selection Sort"
+        ],
+        correct: "C. Bubble Sort"
+      },
+      48: {
+        question: "What is the primary multidimensional array object in NumPy?",
+        options: [
+          "A. array",
+          "B. matrix",
+          "C. ndarray",
+          "D. series"
+        ],
+        correct: "C. ndarray"
+      },
+      49: {
+        question: "Which Pandas structure represents a 2D labeled tabular grid?",
+        options: [
+          "A. Series",
+          "B. Panel",
+          "C. DataFrame",
+          "D. Grid"
+        ],
+        correct: "C. DataFrame"
+      },
+      50: {
+        question: "Which module of Matplotlib is most commonly used for basic 2D plotting?",
+        options: [
+          "A. plt",
+          "B. pyplot",
+          "C. plot",
+          "D. matplotlib"
+        ],
+        correct: "B. pyplot"
+      },
+      51: {
+        question: "Seaborn is built directly on top of which visualization library?",
+        options: [
+          "A. Plotly",
+          "B. Bokeh",
+          "C. Matplotlib",
+          "D. ggplot"
+        ],
+        correct: "C. Matplotlib"
+      },
+      52: {
+        question: "Which module name is imported to utilize OpenCV in Python?",
+        options: [
+          "A. opencv",
+          "B. cv2",
+          "C. vision",
+          "D. imgproc"
+        ],
+        correct: "B. cv2"
+      },
+      53: {
+        question: "Which built-in library manages local SQL file databases?",
+        options: [
+          "A. mysql-connector",
+          "B. sqlite3",
+          "C. db-sqlite",
+          "D. localdb"
+        ],
+        correct: "B. sqlite3"
+      },
+      54: {
+        question: "Which SQL command inserts new records into a table database?",
+        options: [
+          "A. ADD RECORD",
+          "B. INSERT INTO",
+          "C. UPDATE ROW",
+          "D. CREATE ROW"
+        ],
+        correct: "B. INSERT INTO"
+      },
+      55: {
+        question: "What describes the Flask library best?",
+        options: [
+          "A. Full-stack batteries-included framework.",
+          "B. Lightweight micro web framework.",
+          "C. High speed mathematical array processor.",
+          "D. Automated browser rendering system."
+        ],
+        correct: "B. Lightweight micro web framework."
+      },
+      56: {
+        question: "What design pattern does Django web framework structure follow?",
+        options: [
+          "A. Model-View-Controller (MVC)",
+          "B. Model-View-Template (MVT)",
+          "C. Singleton factory pattern",
+          "D. Redux state structure"
+        ],
+        correct: "B. Model-View-Template (MVT)"
+      },
+      57: {
+        question: "Which REST HTTP request method typically fetches existing datasets?",
+        options: [
+          "A. POST",
+          "B. GET",
+          "C. PUT",
+          "D. DELETE"
+        ],
+        correct: "B. GET"
+      },
+      58: {
+        question: "Which JSON function deserializes a JSON string into a Python dict?",
+        options: [
+          "A. json.dumps()",
+          "B. json.loads()",
+          "C. json.parse()",
+          "D. json.dict()"
+        ],
+        correct: "B. json.loads()"
+      },
+      59: {
+        question: "How do you perform a GET request using the requests library?",
+        options: [
+          "A. requests.fetch()",
+          "B. requests.get()",
+          "C. requests.read()",
+          "D. requests.post()"
+        ],
+        correct: "B. requests.get()"
+      },
+      60: {
+        question: "What is Selenium primarily used for in automation?",
+        options: [
+          "A. Parsing XML trees.",
+          "B. Training machine learning models.",
+          "C. Automating browser sessions.",
+          "D. Database connection clustering."
+        ],
+        correct: "C. Automating browser sessions."
+      },
+      61: {
+        question: "Which BeautifulSoup property parses HTML contents into objects?",
+        options: [
+          "A. html.parser",
+          "B. read_html",
+          "C. parse_elements",
+          "D. scraper_engine"
+        ],
+        correct: "A. html.parser"
+      },
+      62: {
+        question: "Which property retrieves row and column counts in Pandas?",
+        options: [
+          "A. df.size",
+          "B. df.shape",
+          "C. df.count()",
+          "D. df.index"
+        ],
+        correct: "B. df.shape"
+      },
+      63: {
+        question: "Which function handles missing NULL values inside DataFrames?",
+        options: [
+          "A. clean_null()",
+          "B. fillna()",
+          "C. drop_duplicates()",
+          "D. clean_nan()"
+        ],
+        correct: "B. fillna()"
+      },
+      64: {
+        question: "What plot visualizes correlation coordinates in Seaborn?",
+        options: [
+          "A. lineplot",
+          "B. heatmap",
+          "C. scatterplot",
+          "D. barplot"
+        ],
+        correct: "B. heatmap"
+      },
+      65: {
+        question: "Which Scikit-Learn method fits data inputs to train model weights?",
+        options: [
+          "A. train()",
+          "B. fit()",
+          "C. evaluate()",
+          "D. compile()"
+        ],
+        correct: "B. fit()"
+      },
+      66: {
+        question: "What compiles sequential dense network structures in Keras?",
+        options: [
+          "A. keras.Model",
+          "B. keras.Sequential",
+          "C. keras.layers.Dense",
+          "D. keras.compile"
+        ],
+        correct: "B. keras.Sequential"
+      },
+      67: {
+        question: "Which mathematical formula defines the ReLU activation function?",
+        options: [
+          "A. 1 / (1 + e^-x)",
+          "B. max(0, x)",
+          "C. tanh(x)",
+          "D. x * sigmoid(x)"
+        ],
+        correct: "B. max(0, x)"
+      },
+      68: {
+        question: "What does one training epoch represent in deep learning?",
+        options: [
+          "A. Processing one sample array batch.",
+          "B. One complete pass of the entire training dataset.",
+          "C. Tuning one specific neuron weight node.",
+          "D. Running validation checks once."
+        ],
+        correct: "B. One complete pass of the entire training dataset."
       }
     };
 
@@ -281,25 +762,243 @@ const PythonTutorial = () => {
 
   const getExamChallengeForTopic = (id) => {
     const challenges = {
-      9: {
-        title: "Find the largest of three numbers using conditionals.",
-        desc: "Teacher challenge: Write a Python program to compare variables a, b, and c, and store the maximum in variable 'largest'.",
+      1: {
+        title: "Print messages using print() function.",
+        desc: "Teacher challenge: Write a Python program to display two sentences to the console.",
         code: [
-          "a, b, c = 12, 45, 23",
-          "if a >= b and a >= c:",
-          "    largest = a",
-          "elif b >= a and b >= c:",
-          "    largest = b",
-          "else:",
-          "    largest = c",
-          "print('Largest:', largest)"
+          "print('Hello World')",
+          "print('My Name is Abhi')"
         ],
         steps: [
-          { line: 1, log: "Initialize values: a = 12, b = 45, c = 23.", vars: { a: 12, b: 45, c: 23 } },
-          { line: 2, log: "Evaluate condition: is 12 >= 45 and 12 >= 23? (False and False) -> False. Move to next condition.", vars: { a: 12, b: 45, c: 23 } },
-          { line: 4, log: "Evaluate elif condition: is 45 >= 12 and 45 >= 23? (True and True) -> True! Enter block.", vars: { a: 12, b: 45, c: 23 } },
-          { line: 5, log: "Condition met: set largest = b = 45.", vars: { a: 12, b: 45, c: 23, largest: 45 } },
-          { line: 8, log: "Print results: 'Largest: 45'. Output displayed successfully.", vars: { a: 12, b: 45, c: 23, largest: 45 } }
+          { line: 1, log: "Print statement executes. Output: 'Hello World'.", vars: {} },
+          { line: 2, log: "Print statement executes. Output: 'My Name is Abhi'.", vars: {} }
+        ]
+      },
+      2: {
+        title: "Initialize name and age variables.",
+        desc: "Teacher challenge: Define a name variable (string) and age variable (integer), and print them.",
+        code: [
+          "name = 'Abhi'",
+          "age = 20",
+          "print(name, 'is', age)"
+        ],
+        steps: [
+          { line: 1, log: "Assign string value 'Abhi' to name variable.", vars: { name: "Abhi" } },
+          { line: 2, log: "Assign integer value 20 to age variable.", vars: { name: "Abhi", age: 20 } },
+          { line: 3, log: "Print outputs: 'Abhi is 20'.", vars: { name: "Abhi", age: 20 } }
+        ]
+      },
+      3: {
+        title: "Working with mixed data types.",
+        desc: "Teacher challenge: Store an integer, float, and boolean value and check their types.",
+        code: [
+          "x = 10",
+          "y = 10.5",
+          "is_student = True"
+        ],
+        steps: [
+          { line: 1, log: "Store integer 10 in x.", vars: { x: 10 } },
+          { line: 2, log: "Store float 10.5 in y.", vars: { x: 10, y: 10.5 } },
+          { line: 3, log: "Store boolean True in is_student.", vars: { x: 10, y: 10.5, is_student: true } }
+        ]
+      },
+      4: {
+        title: "Read string inputs.",
+        desc: "Teacher challenge: Simulate reading a string input from the user and outputting a message.",
+        code: [
+          "username = 'Abhi'",
+          "print('Hello, ' + username)"
+        ],
+        steps: [
+          { line: 1, log: "Simulate input. Assign username = 'Abhi'.", vars: { username: "Abhi" } },
+          { line: 2, log: "Format and display output: 'Hello, Abhi'.", vars: { username: "Abhi" } }
+        ]
+      },
+      5: {
+        title: "Convert type from string to int.",
+        desc: "Teacher challenge: Cast a text representation of age to integer to perform addition.",
+        code: [
+          "age_str = '20'",
+          "age = int(age_str)",
+          "next_year = age + 1"
+        ],
+        steps: [
+          { line: 1, log: "Initialize string age_str = '20'.", vars: { age_str: "20" } },
+          { line: 2, log: "Cast string '20' to integer 20.", vars: { age_str: "20", age: 20 } },
+          { line: 3, log: "Add 1 to age. next_year becomes 21.", vars: { age_str: "20", age: 20, next_year: 21 } }
+        ]
+      },
+      6: {
+        title: "Arithmetic floor division.",
+        desc: "Teacher challenge: Divide numbers using double slashes // to get a rounded down integer quotient.",
+        code: [
+          "x = 15",
+          "y = 4",
+          "quotient = x // y"
+        ],
+        steps: [
+          { line: 1, log: "Set x = 15.", vars: { x: 15 } },
+          { line: 2, log: "Set y = 4.", vars: { x: 15, y: 4 } },
+          { line: 3, log: "Calculate floor division 15 // 4 = 3.", vars: { x: 15, y: 4, quotient: 3 } }
+        ]
+      },
+      7: {
+        title: "Perform simple conditional statement.",
+        desc: "Teacher challenge: Evaluate if a number is positive, print a message if true.",
+        code: [
+          "num = 5",
+          "if num > 0:",
+          "    print('Positive')"
+        ],
+        steps: [
+          { line: 1, log: "Initialize num = 5.", vars: { num: 5 } },
+          { line: 2, log: "Check condition: is 5 > 0? Yes (True). Enter block.", vars: { num: 5 } },
+          { line: 3, log: "Print statement executes. Output: 'Positive'.", vars: { num: 5 } }
+        ]
+      },
+      8: {
+        title: "Check even or odd using if-else.",
+        desc: "Teacher challenge: Read a number and output if it is Even or Odd using if-else structure.",
+        code: [
+          "num = 15",
+          "if num % 2 == 0:",
+          "    print('Even')",
+          "else:",
+          "    print('Odd')"
+        ],
+        steps: [
+          { line: 1, log: "Set num = 15.", vars: { num: 15 } },
+          { line: 2, log: "Check condition: is 15 % 2 == 0? 1 == 0 -> False. Jump to else.", vars: { num: 15 } },
+          { line: 4, log: "Else statement triggered.", vars: { num: 15 } },
+          { line: 5, log: "Print output: 'Odd'.", vars: { num: 15 } }
+        ]
+      },
+      9: {
+        title: "Evaluate student grades using if-elif-else.",
+        desc: "Teacher challenge: Compare marks to output a letter grade ('A', 'B', or 'C').",
+        code: [
+          "marks = 85",
+          "if marks >= 90:",
+          "    grade = 'A'",
+          "elif marks >= 80:",
+          "    grade = 'B'",
+          "else:",
+          "    grade = 'C'"
+        ],
+        steps: [
+          { line: 1, log: "Initialize marks = 85.", vars: { marks: 85 } },
+          { line: 2, log: "Check condition: 85 >= 90? False.", vars: { marks: 85 } },
+          { line: 4, log: "Check elif condition: 85 >= 80? True! Enter elif block.", vars: { marks: 85 } },
+          { line: 5, log: "Assign grade = 'B'.", vars: { marks: 85, grade: "B" } }
+        ]
+      },
+      10: {
+        title: "Accumulate a running sum with a for loop.",
+        desc: "Teacher challenge: Loop from 1 to 3 and calculate the summation.",
+        code: [
+          "total = 0",
+          "for i in range(1, 4):",
+          "    total += i",
+          "print('Total:', total)"
+        ],
+        steps: [
+          { line: 1, log: "Set total = 0.", vars: { total: 0 } },
+          { line: 2, log: "Loop iteration 1: set i = 1.", vars: { total: 0, i: 1 } },
+          { line: 3, log: "Add i to total. total = 1.", vars: { total: 1, i: 1 } },
+          { line: 2, log: "Loop iteration 2: set i = 2.", vars: { total: 1, i: 2 } },
+          { line: 3, log: "Add i to total. total = 3.", vars: { total: 3, i: 2 } },
+          { line: 2, log: "Loop iteration 3: set i = 3.", vars: { total: 3, i: 3 } },
+          { line: 3, log: "Add i to total. total = 6.", vars: { total: 6, i: 3 } },
+          { line: 4, log: "Print final total: 'Total: 6'.", vars: { total: 6 } }
+        ]
+      },
+      11: {
+        title: "Reverse a number using while loop.",
+        desc: "Teacher challenge: Deconstruct and reverse number digits iteratively.",
+        code: [
+          "n = 12",
+          "rev = 0",
+          "while n > 0:",
+          "    digit = n % 10",
+          "    rev = (rev * 10) + digit",
+          "    n = n // 10"
+        ],
+        steps: [
+          { line: 1, log: "Set n = 12.", vars: { n: 12 } },
+          { line: 2, log: "Set rev = 0.", vars: { n: 12, rev: 0 } },
+          { line: 3, log: "Check condition: is 12 > 0? Yes (True). Enter loop.", vars: { n: 12, rev: 0 } },
+          { line: 4, log: "Get remainder digit: 12 % 10 = 2.", vars: { n: 12, rev: 0, digit: 2 } },
+          { line: 5, log: "Update reverse: (0 * 10) + 2 = 2.", vars: { n: 12, rev: 2, digit: 2 } },
+          { line: 6, log: "Divide n by 10 (floor): 12 // 10 = 1.", vars: { n: 1, rev: 2, digit: 2 } },
+          { line: 3, log: "Check condition: is 1 > 0? Yes (True). Enter loop.", vars: { n: 1, rev: 2 } },
+          { line: 4, log: "Get remainder digit: 1 % 10 = 1.", vars: { n: 1, rev: 2, digit: 1 } },
+          { line: 5, log: "Update reverse: (2 * 10) + 1 = 21.", vars: { n: 1, rev: 21, digit: 1 } },
+          { line: 6, log: "Divide n by 10 (floor): 1 // 10 = 0.", vars: { n: 0, rev: 21, digit: 1 } },
+          { line: 3, log: "Check condition: is 0 > 0? No (False). Exit loop.", vars: { n: 0, rev: 21 } }
+        ]
+      },
+      12: {
+        title: "Print coordinate grids with Nested Loops.",
+        desc: "Teacher challenge: Create tuples of coordinates using loops inside loops.",
+        code: [
+          "grid = []",
+          "for i in range(2):",
+          "    for j in range(2):",
+          "        grid.append((i, j))"
+        ],
+        steps: [
+          { line: 1, log: "Initialize empty grid list.", vars: { grid: [] } },
+          { line: 2, log: "Outer Loop i = 0.", vars: { grid: [], i: 0 } },
+          { line: 3, log: "Inner Loop j = 0.", vars: { grid: [], i: 0, j: 0 } },
+          { line: 4, log: "Append (0, 0) coordinate.", vars: { grid: [[0, 0]], i: 0, j: 0 } },
+          { line: 3, log: "Inner Loop j = 1.", vars: { grid: [[0, 0]], i: 0, j: 1 } },
+          { line: 4, log: "Append (0, 1) coordinate.", vars: { grid: [[0, 0], [0, 1]], i: 0, j: 1 } },
+          { line: 2, log: "Outer Loop i = 1.", vars: { grid: [[0, 0], [0, 1]], i: 1 } },
+          { line: 3, log: "Inner Loop j = 0.", vars: { grid: [[0, 0], [0, 1]], i: 1, j: 0 } },
+          { line: 4, log: "Append (1, 0) coordinate.", vars: { grid: [[0, 0], [0, 1], [1, 0]], i: 1, j: 0 } },
+          { line: 3, log: "Inner Loop j = 1.", vars: { grid: [[0, 0], [0, 1], [1, 0]], i: 1, j: 1 } },
+          { line: 4, log: "Append (1, 1) coordinate.", vars: { grid: [[0, 0], [0, 1], [1, 0], [1, 1]], i: 1, j: 1 } }
+        ]
+      },
+      13: {
+        title: "Break and Continue controls.",
+        desc: "Teacher challenge: Sum numbers in list, skip negatives with continue, stop when value is 0.",
+        code: [
+          "total = 0",
+          "for x in [3, -2, 0, 5]:",
+          "    if x < 0:",
+          "        continue",
+          "    if x == 0:",
+          "        break",
+          "    total += x"
+        ],
+        steps: [
+          { line: 1, log: "Initialize total = 0.", vars: { total: 0 } },
+          { line: 2, log: "Examine element x = 3.", vars: { total: 0, x: 3 } },
+          { line: 3, log: "Check if 3 < 0? No.", vars: { total: 0, x: 3 } },
+          { line: 5, log: "Check if 3 == 0? No.", vars: { total: 0, x: 3 } },
+          { line: 7, log: "Add 3 to total. total = 3.", vars: { total: 3, x: 3 } },
+          { line: 2, log: "Examine element x = -2.", vars: { total: 3, x: -2 } },
+          { line: 3, log: "Check if -2 < 0? Yes (True). Hit continue.", vars: { total: 3, x: -2 } },
+          { line: 4, log: "Continue skips rest of body, returns to loop start.", vars: { total: 3 } },
+          { line: 2, log: "Examine element x = 0.", vars: { total: 3, x: 0 } },
+          { line: 3, log: "Check if 0 < 0? No.", vars: { total: 3, x: 0 } },
+          { line: 5, log: "Check if 0 == 0? Yes (True). Hit break.", vars: { total: 3, x: 0 } },
+          { line: 6, log: "Break exits loop immediately.", vars: { total: 3 } }
+        ]
+      },
+      14: {
+        title: "Slice and check Palindrome.",
+        desc: "Teacher challenge: Slice a string in reverse to evaluate standard palindrome rules.",
+        code: [
+          "word = 'dad'",
+          "rev = word[::-1]",
+          "is_pal = (word == rev)"
+        ],
+        steps: [
+          { line: 1, log: "Assign string value 'dad' to word.", vars: { word: "dad" } },
+          { line: 2, log: "Reverse word using slicing: dad[::-1] -> 'dad'.", vars: { word: "dad", rev: "dad" } },
+          { line: 3, log: "Compare word and rev: 'dad' == 'dad' -> True.", vars: { word: "dad", rev: "dad", is_pal: true } }
         ]
       },
       15: {
@@ -326,6 +1025,200 @@ const PythonTutorial = () => {
           { line: 3, log: "Loop iteration 4: examine x = 8.", vars: { arr: [12, 3, 45, 8], max_val: 45, x: 8 } },
           { line: 4, log: "Compare: is x > max_val? (8 > 45) -> No. Skip update.", vars: { arr: [12, 3, 45, 8], max_val: 45, x: 8 } },
           { line: 6, log: "Print statement executes: 'Max: 45'. Output displayed successfully.", vars: { arr: [12, 3, 45, 8], max_val: 45 } }
+        ]
+      },
+      16: {
+        title: "Tuple unpacking operations.",
+        desc: "Teacher challenge: Unpack tuple elements into distinct variables.",
+        code: [
+          "coords = (10, 20)",
+          "x, y = coords",
+          "print(x, y)"
+        ],
+        steps: [
+          { line: 1, log: "Create coordinates tuple coords = (10, 20).", vars: { coords: [10, 20] } },
+          { line: 2, log: "Unpack coordinates to x = 10, y = 20.", vars: { coords: [10, 20], x: 10, y: 20 } },
+          { line: 3, log: "Print unpack values: '10 20'.", vars: { coords: [10, 20], x: 10, y: 20 } }
+        ]
+      },
+      17: {
+        title: "Remove duplicate items using set().",
+        desc: "Teacher challenge: Cast a duplicate-laden array to set and back to print unique values.",
+        code: [
+          "nums = [1, 2, 2, 3]",
+          "unique_set = set(nums)",
+          "unique_list = list(unique_set)"
+        ],
+        steps: [
+          { line: 1, log: "Initialize list nums containing duplicates.", vars: { nums: [1, 2, 2, 3] } },
+          { line: 2, log: "Cast list to set to remove duplicates.", vars: { nums: [1, 2, 2, 3], unique_set: [1, 2, 3] } },
+          { line: 3, log: "Cast back to sorted list.", vars: { nums: [1, 2, 2, 3], unique_set: [1, 2, 3], unique_list: [1, 2, 3] } }
+        ]
+      },
+      18: {
+        title: "Manage key-values inside dictionary.",
+        desc: "Teacher challenge: Update a student's grades inside a dictionary.",
+        code: [
+          "db = {'name': 'Abhi'}",
+          "db['gpa'] = 3.9",
+          "print(db.get('gpa'))"
+        ],
+        steps: [
+          { line: 1, log: "Initialize dictionary with name.", vars: { db: { name: "Abhi" } } },
+          { line: 2, log: "Assign GPA value key.", vars: { db: { name: "Abhi", gpa: 3.9 } } },
+          { line: 3, log: "Retrieve GPA. Output: '3.9'.", vars: { db: { name: "Abhi", gpa: 3.9 } } }
+        ]
+      },
+      19: {
+        title: "Define function returning variables calculation.",
+        desc: "Teacher challenge: Create calculator logic returning arithmetic products.",
+        code: [
+          "def mult(a, b):",
+          "    return a * b",
+          "ans = mult(4, 5)"
+        ],
+        steps: [
+          { line: 3, log: "Execute function mult(4, 5).", vars: {} },
+          { line: 1, log: "Enter function scope: assign local variables a = 4, b = 5.", vars: { a: 4, b: 5 } },
+          { line: 2, log: "Return 4 * 5 = 20.", vars: { a: 4, b: 5 } },
+          { line: 3, log: "Assign function response to ans: ans = 20.", vars: { ans: 20 } }
+        ]
+      },
+      20: {
+        title: "Recursive Factorial calculation.",
+        desc: "Teacher challenge: Calculate Factorial of 3 using recursive stack calls.",
+        code: [
+          "def fact(n):",
+          "    if n <= 1:",
+          "        return 1",
+          "    return n * fact(n-1)",
+          "res = fact(3)"
+        ],
+        steps: [
+          { line: 5, log: "Invoke fact(3).", vars: {} },
+          { line: 2, log: "Check: is 3 <= 1? False.", vars: { n: 3 } },
+          { line: 4, log: "Call: 3 * fact(2).", vars: { n: 3 } },
+          { line: 2, log: "Check: is 2 <= 1? False.", vars: { n: 2 } },
+          { line: 4, log: "Call: 2 * fact(1).", vars: { n: 2 } },
+          { line: 2, log: "Check: is 1 <= 1? True! Returns 1.", vars: { n: 1 } },
+          { line: 3, log: "Return 1 to caller.", vars: { n: 1 } },
+          { line: 4, log: "Evaluate: 2 * 1 = 2.", vars: { n: 2 } },
+          { line: 4, log: "Evaluate: 3 * 2 = 6.", vars: { n: 3 } },
+          { line: 5, log: "Set final response: res = 6.", vars: { res: 6 } }
+        ]
+      },
+      23: {
+        title: "Catch division by zero errors.",
+        desc: "Teacher challenge: Guard code blocks using try/except exceptions.",
+        code: [
+          "try:",
+          "    ans = 10 / 0",
+          "except ZeroDivisionError:",
+          "    ans = 0"
+        ],
+        steps: [
+          { line: 1, log: "Enter try execution block.", vars: {} },
+          { line: 2, log: "Attempt: 10 / 0. Triggers ZeroDivisionError!", vars: {} },
+          { line: 3, log: "Catch error matches. Redirect to except block.", vars: {} },
+          { line: 4, log: "Set fallback default: ans = 0.", vars: { ans: 0 } }
+        ]
+      },
+      33: {
+        title: "Create list of squares using List Comprehension.",
+        desc: "Teacher challenge: Build squares of numbers in a single line.",
+        code: [
+          "squares = [x*x for x in [1, 2, 3]]",
+          "print(squares)"
+        ],
+        steps: [
+          { line: 1, log: "Generate squares lists: 1*1, 2*2, 3*3.", vars: { squares: [1, 4, 9] } },
+          { line: 2, log: "Print squares output list: '[1, 4, 9]'.", vars: { squares: [1, 4, 9] } }
+        ]
+      },
+      41: {
+        title: "Perform stack stack logic.",
+        desc: "Teacher challenge: Push items onto list stack, pop last item.",
+        code: [
+          "stack = ['A']",
+          "stack.append('B')",
+          "item = stack.pop()"
+        ],
+        steps: [
+          { line: 1, log: "Initialize stack list.", vars: { stack: ["A"] } },
+          { line: 2, log: "Push 'B' onto stack.", vars: { stack: ["A", "B"] } },
+          { line: 3, log: "Pop item from top. item = 'B'.", vars: { stack: ["A"], item: "B" } }
+        ]
+      },
+      42: {
+        title: "Queue FIFO operations.",
+        desc: "Teacher challenge: Enqueue and Dequeue values using double queues.",
+        code: [
+          "from collections import deque",
+          "q = deque(['A'])",
+          "q.append('B')",
+          "item = q.popleft()"
+        ],
+        steps: [
+          { line: 2, log: "Initialize double-ended queue with 'A'.", vars: { q: ["A"] } },
+          { line: 3, log: "Enqueue item 'B' to the right.", vars: { q: ["A", "B"] } },
+          { line: 4, log: "Dequeue from left. item = 'A'.", vars: { q: ["B"], item: "A" } }
+        ]
+      },
+      46: {
+        title: "Iterate search via Binary Search.",
+        desc: "Teacher challenge: Update low and high indices on sorted arrays.",
+        code: [
+          "arr = [1, 3, 5, 7]",
+          "low, high = 0, 3",
+          "mid = (low + high) // 2"
+        ],
+        steps: [
+          { line: 1, log: "Define sorted items list arr.", vars: { arr: [1, 3, 5, 7] } },
+          { line: 2, log: "Initialize boundary pointers low = 0, high = 3.", vars: { arr: [1, 3, 5, 7], low: 0, high: 3 } },
+          { line: 3, log: "Calculate mid index: (0 + 3) // 2 = 1.", vars: { arr: [1, 3, 5, 7], low: 0, high: 3, mid: 1 } }
+        ]
+      },
+      47: {
+        title: "Compare and swap pass of Bubble Sort.",
+        desc: "Teacher challenge: Compare adjacent list numbers and execute swap.",
+        code: [
+          "arr = [5, 2]",
+          "if arr[0] > arr[1]:",
+          "    arr[0], arr[1] = arr[1], arr[0]"
+        ],
+        steps: [
+          { line: 1, log: "Initialize unsorted list arr = [5, 2].", vars: { arr: [5, 2] } },
+          { line: 2, log: "Compare adjacent values: is 5 > 2? Yes (True).", vars: { arr: [5, 2] } },
+          { line: 3, log: "Swap elements: arr becomes [2, 5].", vars: { arr: [2, 5] } }
+        ]
+      },
+      58: {
+        title: "Load JSON string payload.",
+        desc: "Teacher challenge: Convert web JSON input text back to a Python dictionary.",
+        code: [
+          "import json",
+          "payload = '{\"gpa\": 3.9}'",
+          "data = json.loads(payload)"
+        ],
+        steps: [
+          { line: 2, log: "Set target JSON formatted text variable.", vars: { payload: "{\"gpa\": 3.9}" } },
+          { line: 3, log: "Deserialize JSON back to Python dictionary.", vars: { payload: "{\"gpa\": 3.9}", data: { gpa: 3.9 } } }
+        ]
+      },
+      68: {
+        title: "Monitor epoch updates during deep learning.",
+        desc: "Teacher challenge: Loop epochs to inspect loss and accuracy progress.",
+        code: [
+          "epoch = 1",
+          "loss = 0.24",
+          "epoch = 2",
+          "loss = 0.04"
+        ],
+        steps: [
+          { line: 1, log: "Initialize epoch 1.", vars: { epoch: 1 } },
+          { line: 2, log: "Log loss state: loss = 0.24.", vars: { epoch: 1, loss: 0.24 } },
+          { line: 3, log: "Increment epoch 2.", vars: { epoch: 2, loss: 0.24 } },
+          { line: 4, log: "Loss decreased to 0.04.", vars: { epoch: 2, loss: 0.04 } }
         ]
       }
     };
@@ -1375,7 +2268,7 @@ print("AI Model Training Completed successfully!")`,
   const currentRank = getRank(totalXP);
   const RankIcon = currentRank.badge;
 
-  const currentTraceStep = currentExamChallenge.steps[traceStep];
+  const currentTraceStep = currentExamChallenge.steps[traceStep] || currentExamChallenge.steps[0] || { line: 0, log: "", vars: {} };
 
   return (
     <div className="flex flex-col h-screen bg-[#f9fafb] font-sans">

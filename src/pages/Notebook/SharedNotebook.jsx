@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getNotebookEntries, getCompletedNotebookDays, detectTopic } from '../../services/notebookService';
-import { Brain, ArrowLeft, RotateCw, Calendar, FileText, Code, User, CheckCircle2 } from 'lucide-react';
+import { Brain, ArrowLeft, RotateCw, Calendar, FileText, Code, User, CheckCircle2, Lock, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // Shimmering Skeletons to prevent layout shifts
@@ -61,9 +61,11 @@ const SharedNotebook = () => {
   const [loading, setLoading] = useState(true);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchSharedUserData = async (showRefreshIndicator = false) => {
     if (showRefreshIndicator) setIsRefreshing(true);
+    setError(null);
     try {
       const userDoc = await getDoc(doc(db, "users", userId));
       if (userDoc.exists()) {
@@ -104,9 +106,16 @@ const SharedNotebook = () => {
         if (daysToDisplay.length > 0 && !selectedDay) {
           setSelectedDay(daysToDisplay[0]);
         }
+      } else {
+        setError("not-found");
       }
-    } catch (error) {
-      console.error("Error fetching shared user data:", error);
+    } catch (err) {
+      console.error("Error fetching shared user data:", err);
+      if (err.code === "permission-denied" || err.message?.toLowerCase().includes("permission")) {
+        setError("permission-denied");
+      } else {
+        setError("failed");
+      }
     } finally {
       if (showRefreshIndicator) setIsRefreshing(false);
       else setLoading(false);
@@ -120,8 +129,11 @@ const SharedNotebook = () => {
       const data = await getNotebookEntries(userId, selectedDay);
       data.sort((a, b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
       setEntries(data);
-    } catch (error) {
-      console.error("Error fetching entries:", error);
+    } catch (err) {
+      console.error("Error fetching entries:", err);
+      if (err.code === "permission-denied" || err.message?.toLowerCase().includes("permission")) {
+        setError("permission-denied");
+      }
     } finally {
       setLoadingEntries(false);
     }
@@ -178,9 +190,63 @@ const SharedNotebook = () => {
     );
   }
 
+  if (error === "permission-denied" || (!sharedUser && error === "permission-denied")) {
+    return (
+      <div className="flex flex-col min-h-screen w-screen items-center justify-center bg-[#f9fafb] p-6 text-center select-none">
+        <div className="bg-white border border-gray-200 rounded-[28px] p-8 max-w-xl shadow-[0_12px_38px_rgba(0,0,0,0.04)] space-y-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-red-500" />
+          <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-500 mx-auto">
+            <Lock className="w-6 h-6 animate-bounce" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 leading-tight">Database Permission Error</h2>
+          <p className="text-gray-500 text-sm leading-relaxed max-w-md mx-auto font-medium">
+            This shared notebook link cannot be accessed because your Firebase Firestore database rules restrict reads to the owner only.
+          </p>
+          
+          <div className="bg-slate-50 border border-slate-150 rounded-2xl p-5 text-left space-y-3.5">
+            <div className="flex items-center gap-2 text-red-650 font-extrabold text-xs uppercase tracking-widest">
+              <AlertTriangle className="w-4 h-4" />
+              <span>How to fix this (for Admin/Owner):</span>
+            </div>
+            <ol className="list-decimal list-inside text-[12px] text-slate-600 space-y-2.5 leading-relaxed font-medium">
+              <li>Go to your <strong>Firebase Console</strong>.</li>
+              <li>Open <strong>Firestore Database</strong> and click on the <strong>Rules</strong> tab.</li>
+              <li>Replace or add rules to allow public read access for the user profile and notebook entries:
+                <pre className="bg-slate-900 text-slate-350 p-4.5 rounded-xl font-mono text-[11px] mt-2.5 overflow-x-auto select-all leading-normal border border-slate-800">
+{`match /users/{userId} {
+  allow read: if true;
+  allow write: if request.auth != null && request.auth.uid == userId;
+}
+match /users/{userId}/notebook_days/{day}/entries/{entryId} {
+  allow read: if true;
+  allow write: if request.auth != null && request.auth.uid == userId;
+}`}
+                </pre>
+              </li>
+              <li>Click <strong>Publish</strong>. Once updated, this link will load successfully!</li>
+            </ol>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <button
+              onClick={handleRefresh}
+              className="px-6 py-3 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-[0.98] text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-indigo-100/50"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+              <span>Retry Load</span>
+            </button>
+            <Link to="/" className="px-6 py-3 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-xl font-bold transition-all text-xs flex items-center justify-center">
+              Go to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!sharedUser) {
     return (
-      <div className="flex flex-col h-screen w-screen items-center justify-center bg-[#f9fafb] p-6 text-center">
+      <div className="flex flex-col h-screen w-screen items-center justify-center bg-[#f9fafb] p-6 text-center select-none">
         <h2 className="text-2xl font-black text-gray-900 mb-2">Notebook Not Found</h2>
         <p className="text-gray-500 max-w-md mb-6">This notebook shared link might be invalid, or the user profile does not exist.</p>
         <Link to="/" className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700 transition-colors">
