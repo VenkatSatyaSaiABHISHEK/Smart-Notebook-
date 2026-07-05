@@ -49,7 +49,7 @@ const HeroSection = () => {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium text-sm mb-8 shadow-[0_0_20px_rgba(99,102,241,0.15)]"
           >
             <Sparkles className="w-4 h-4" />
-            <span className="flex">LearnLoop v2.0 <span className="hidden sm:inline">&nbsp;is now in Public Beta</span></span>
+            <span className="flex">VidyaSetu Ai v2.0 <span className="hidden sm:inline">&nbsp;is now in Public Beta</span></span>
           </motion.div>
           
           <motion.h1 

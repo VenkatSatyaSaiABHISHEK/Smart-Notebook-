@@ -10,18 +10,18 @@ const FAQSection = () => {
     },
     {
       q: "Can I upload images of handwritten notes?",
-      a: "Yes! LearnLoop features a built-in OCR (Optical Character Recognition) scanner. Just upload an image of your whiteboard or notebook, and we'll extract the text for you."
+      a: "Yes! VidyaSetu Ai features a built-in OCR (Optical Character Recognition) scanner. Just upload an image of your whiteboard or notebook, and we'll extract the text for you."
     },
     {
       q: "Is this application available offline?",
-      a: "Absolutely. LearnLoop is built as a Progressive Web App (PWA). You can install it on your device and access your notes even without an internet connection."
+      a: "Absolutely. VidyaSetu Ai is built as a Progressive Web App (PWA). You can install it on your device and access your notes even without an internet connection."
     },
     {
       q: "Can communities share notes with each other?",
       a: "Yes. You can publish specific notes to your Community Hub. Other students can read, like, comment, and save your notes to their own workspace."
     },
     {
-      q: "Is LearnLoop really free?",
+      q: "Is VidyaSetu Ai really free?",
       a: "The core notebook features and joining communities are completely free. Advanced AI features and unlimited usage require a Pro subscription."
     }
   ];
@@ -33,7 +33,7 @@ const FAQSection = () => {
       <div className="max-w-3xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-extrabold mb-4">Frequently Asked Questions</h2>
-          <p className="text-gray-600">Everything you need to know about LearnLoop.</p>
+          <p className="text-gray-600">Everything you need to know about VidyaSetu Ai.</p>
         </div>
 
         <div className="space-y-4">

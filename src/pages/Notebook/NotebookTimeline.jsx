@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, ArrowRight, Brain, Plus, Image as ImageIcon, FileText, Link as LinkIcon, 
   Send, Loader2, Code, Play, CheckCircle2, FileCode2, Trash2, Edit2, Save, X,
-  Calendar, Terminal, Check, PlayCircle, MoreVertical, ArrowUp, ArrowDown, Sparkles, Cpu
+  Calendar, Terminal, Check, PlayCircle, MoreVertical, ArrowUp, ArrowDown, Sparkles, Cpu,
+  Scissors, Search, Database
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getNotebookEntries, addNotebookEntry, deleteNotebookEntry, updateNotebookEntry, getCachedExplanation, setCachedExplanation, updateUserTokens, getLocalCachedExplanation, detectTopic } from '../../services/notebookService';
@@ -107,6 +108,21 @@ const NotebookTimeline = () => {
   const [activeExplanationId, setActiveExplanationId] = useState(null);
   const [isTokenHubOpen, setIsTokenHubOpen] = useState(false);
 
+  // Slicing & RAG states
+  const [slicingChunk, setSlicingChunk] = useState(null);
+  const [sliceTitle1, setSliceTitle1] = useState('');
+  const [sliceContent1, setSliceContent1] = useState('');
+  const [sliceTitle2, setSliceTitle2] = useState('');
+  const [sliceContent2, setSliceContent2] = useState('');
+  const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
+
+  const [ragQuery, setRagQuery] = useState('');
+  const [ragTitle, setRagTitle] = useState('');
+  const [retrievedContext, setRetrievedContext] = useState([]);
+  const [ragAnswer, setRagAnswer] = useState('');
+  const [isRagGenerating, setIsRagGenerating] = useState(false);
+  const [isRagOpen, setIsRagOpen] = useState(false);
+
   // Close active explanation modal if we switch sub-tabs
   useEffect(() => {
     setActiveExplanationId(null);
@@ -158,6 +174,17 @@ const NotebookTimeline = () => {
     } catch(e) {}
     return [{ id: 1, type: 'code', content: 'print("Hello from Python!")', output: '', aiResult: '', isRunning: false, isCorrecting: false }];
   });
+
+  const codeCellsRef = useRef([]);
+  const entriesRef = useRef([]);
+
+  useEffect(() => {
+    codeCellsRef.current = codeCells;
+  }, [codeCells]);
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   // Save workspace to local storage on change
   useEffect(() => {
@@ -280,6 +307,169 @@ const NotebookTimeline = () => {
     setCodeCells(prev => prev.filter(c => c.id !== id));
   };
 
+  const uploadToCloudinary = async (base64Image) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) {
+      console.warn("Cloudinary configuration missing in env. Using base64 directly.");
+      return base64Image;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("file", base64Image);
+      formData.append("upload_preset", uploadPreset);
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Cloudinary upload failed");
+      const data = await res.json();
+      return data.secure_url;
+    } catch (err) {
+      console.error("Failed to upload to Cloudinary:", err);
+      return base64Image;
+    }
+  };
+
+  const extractCorrectedCode = (aiText) => {
+    if (!aiText) return null;
+    const match = aiText.match(/```(?:python|c|javascript)?[\s\S]*?\n([\s\S]*?)```/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    return null;
+  };
+
+  const retrieveRelevantEntries = (queryText, excludeEntryId = null) => {
+    if (!queryText) return [];
+    const keywords = queryText.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length > 3);
+    if (keywords.length === 0) return [];
+    
+    const scores = entriesRef.current
+      .filter(entry => entry.id !== excludeEntryId)
+      .map(entry => {
+        let textToSearch = (entry.content || '') + ' ' + (entry.output || '') + ' ' + (entry.aiExample || '');
+        if (entry.chunks) {
+          textToSearch += ' ' + entry.chunks.map(c => c.content).join(' ');
+        }
+        textToSearch = textToSearch.toLowerCase();
+        
+        let matchCount = 0;
+        keywords.forEach(kw => {
+          if (textToSearch.includes(kw)) matchCount++;
+        });
+        const overlapScore = matchCount / keywords.length;
+        return { entry, score: overlapScore };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score);
+      
+    return scores.slice(0, 3).map(item => item.entry);
+  };
+
+  const handleSliceChunk = (entryId, chunkId) => {
+    const entry = entriesRef.current.find(e => e.id === entryId);
+    if (!entry) return;
+    const chunk = entry.chunks.find(c => c.id === chunkId);
+    if (!chunk) return;
+    
+    setSlicingChunk({ entryId, chunkId, type: chunk.type || 'text' });
+    setSliceTitle1(chunk.title || 'Section A');
+    setSliceContent1(chunk.content ? chunk.content.replace(/\\n/g, '\n') : '');
+    setSliceTitle2('Section B');
+    setSliceContent2('');
+    setIsSliceModalOpen(true);
+  };
+
+  const handleSaveSlice = async () => {
+    if (!slicingChunk) return;
+    const { entryId, chunkId } = slicingChunk;
+    const entry = entriesRef.current.find(e => e.id === entryId);
+    if (!entry) return;
+
+    let newChunks = [];
+    for (const c of entry.chunks) {
+      if (c.id === chunkId) {
+        newChunks.push({
+          id: `chunk_${Date.now()}_1`,
+          type: slicingChunk.type,
+          title: sliceTitle1,
+          content: sliceContent1
+        });
+        if (sliceContent2.trim()) {
+          newChunks.push({
+            id: `chunk_${Date.now()}_2`,
+            type: slicingChunk.type,
+            title: sliceTitle2,
+            content: sliceContent2
+          });
+        }
+      } else {
+        newChunks.push(c);
+      }
+    }
+
+    try {
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, chunks: newChunks } : e));
+      await updateNotebookEntry(currentUser.uid, day || '1', entryId, { chunks: newChunks });
+      setIsSliceModalOpen(false);
+      setSlicingChunk(null);
+    } catch (err) {
+      alert("Failed to slice chunk: " + err.message);
+    }
+  };
+
+  const handleFeedToRAG = (chunkContent, chunkTitle) => {
+    const cleanContent = chunkContent ? chunkContent.replace(/\\n/g, '\n') : '';
+    setRagQuery(cleanContent);
+    setRagTitle(chunkTitle);
+    const matches = retrieveRelevantEntries(cleanContent);
+    setRetrievedContext(matches);
+    setIsRagOpen(true);
+    handleExecuteRAG(cleanContent, matches);
+  };
+
+  const handleExecuteRAG = async (query, matches) => {
+    setIsRagGenerating(true);
+    setRagAnswer('');
+    try {
+      let contextStr = "";
+      if (matches.length > 0) {
+        contextStr = matches.map((match, idx) => {
+          return `[Source: ${match.source || 'Notebook'}] ${match.type === 'code' ? `Code:\n${match.content}\nOutput:\n${match.output}` : match.content}`;
+        }).join("\n\n---\n\n");
+      } else {
+        contextStr = "No matching context found in this notebook day.";
+      }
+
+      const prompt = `You are a Retrieval-Augmented Generation (RAG) assistant integrated into the student's Smart Notebook.
+The student is analyzing this specific question/topic:
+"${query}"
+
+Here is the retrieved context from their notebook notes and code cells for this day:
+${contextStr}
+
+Your job:
+1. Review the notebook context carefully.
+2. Formulate a comprehensive, highly clear explanation of the topic/question using simple analogies and beginner-friendly pedagogic terms.
+3. If the retrieved context contains relevant code or notes, refer to them explicitly and explain how they relate to the question.
+4. If the notebook notes are incomplete or contain minor mistakes, clarify them.
+5. Provide a short sample practice question or key take-away based on this context.
+Return your explanation in clean, beautiful markdown.`;
+
+      const resObj = await processWithGroq(prompt, "explain_code");
+      setRagAnswer(resObj.text);
+      updateUserTokenUsage(resObj.usage.total_tokens, 0);
+    } catch (err) {
+      setRagAnswer(`⚠️ Failed to generate AI response. Error: ${err.message}`);
+    } finally {
+      setIsRagGenerating(false);
+    }
+  };
+
   const handleAutoAIErrorExplain = async (id, code, errorMsg) => {
     if ((userData?.tokensUsed || 0) >= 100000000) {
       updateCell(id, { aiResult: `⚠️ **Daily Groq limit completed.** Please wait ${getHoursUntilReset()} hours to reset.` });
@@ -303,7 +493,11 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
 2. Only fix the exact bug causing the error. Do NOT add extra validation checks (such as value errors or negative checks) or rewrite the control flow (e.g., changing 'if' statements to 'elif/else' structures or nesting) unless it is directly causing the error.
 3. Keep the corrected code as close as possible to the original line count so that it can be easily traced line-by-line.`;
       const res = await processWithGroq(prompt, "explain_code");
-      updateCell(id, { aiResult: "⚠️ **Auto-Error Analysis:**\n\n" + res.text });
+      const corrected = extractCorrectedCode(res.text);
+      updateCell(id, { 
+        aiResult: "⚠️ **Auto-Error Analysis:**\n\n" + res.text,
+        correctedCode: corrected 
+      });
       updateUserTokenUsage(res.usage.total_tokens, 0);
     } catch (err) {
       console.error(err);
@@ -392,7 +586,11 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
 2. Only fix the exact bug causing the error. Do NOT add extra validation checks (such as value errors or negative checks) or rewrite the control flow (e.g., changing 'if' statements to 'elif/else' structures or nesting) unless it is directly causing the error.
 3. Keep the corrected code as close as possible to the original line count so that it can be easily traced line-by-line.`;
       const res = await processWithGroq(prompt, "explain_code");
-      updateCell(id, { aiResult: res.text });
+      const corrected = extractCorrectedCode(res.text);
+      updateCell(id, { 
+        aiResult: res.text,
+        correctedCode: corrected 
+      });
       updateUserTokenUsage(res.usage.total_tokens, 0);
     } catch (err) {
       updateCell(id, { aiResult: "AI Error: " + err.message });
@@ -622,7 +820,18 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(" ") + "\\n";
+            let lastY = null;
+            let pageText = "";
+            for (const item of textContent.items) {
+              if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+                pageText += "\n";
+              } else if (pageText.length > 0 && !pageText.endsWith("\n") && !pageText.endsWith(" ")) {
+                pageText += " ";
+              }
+              pageText += item.str;
+              lastY = item.transform[5];
+            }
+            fullText += pageText + "\n\n";
           }
           
           // PDF Chunking Logic
@@ -639,15 +848,16 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
             }
             setAnalysisStatus(`AI is analyzing PDF chunk ${i + 1} of ${chunks.length}...`);
             const chunkText = chunks[i];
-            const dataToProcess = "Format and extract the blocks from this PDF part:\\n\\n" + chunkText;
+            const dataToProcess = "Format and extract the blocks from this PDF part:\n\n" + chunkText;
             
             try {
               const resObj = await processWithGroq(dataToProcess, "extract_blocks");
               const aiBlocksStr = resObj.text;
               updateUserTokenUsage(resObj.usage.total_tokens, 0);
-              const jsonMatch = aiBlocksStr.match(/\[.*\]/s);
+              const jsonMatch = aiBlocksStr.match(/\{[\s\S]*\}/s) || aiBlocksStr.match(/\[.*\]/s);
               if (jsonMatch) {
-                const blocks = JSON.parse(jsonMatch[0]);
+                const parsed = JSON.parse(jsonMatch[0]);
+                const blocks = parsed.blocks || (Array.isArray(parsed) ? parsed : []);
                 const newEntriesList = [];
                 for (const block of blocks) {
                   const cellEntryData = {
@@ -665,14 +875,14 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
                 }
                 setEntries(prev => [...prev, ...newEntriesList]);
               } else {
-                throw new Error("No JSON array found in response");
+                throw new Error("No JSON found in response");
               }
             } catch (err) {
               console.error("Groq Chunk Error:", err);
               const cellEntryData = {
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 type: 'text',
-                content: dataToProcess,
+                content: chunkText,
                 source: 'PDF Upload (Raw)'
               };
               const docId = await addNotebookEntry(currentUser.uid, day || '1', cellEntryData);
@@ -732,6 +942,39 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
 
       const isColab = type === 'colab' || dataToProcess.includes('colab.research.google.com');
 
+      if (type === 'photo') {
+        try {
+          const uploadedUrl = await uploadToCloudinary(dataToProcess);
+          const resObj = await processWithGroq(dataToProcess, "analyze_image");
+          const jsonText = resObj.text;
+          updateUserTokenUsage(resObj.usage.total_tokens, 0);
+          
+          const cleanJson = jsonText.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+          const parsed = JSON.parse(cleanJson);
+          
+          const newPhotoEntry = {
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: 'photo',
+            photoUrl: uploadedUrl,
+            description: parsed.description || "Uploaded image content",
+            ocrText: parsed.ocrText || "",
+            chunks: parsed.chunks || [],
+            source: 'Visual Note'
+          };
+          
+          const docId = await addNotebookEntry(currentUser.uid, day || '1', newPhotoEntry);
+          setEntries(prev => [...prev, { id: docId, ...newPhotoEntry }]);
+          setInputText('');
+          setIsAnalyzing(false);
+          return;
+        } catch (err) {
+          console.error("Photo OCR analysis failed:", err);
+          alert("Failed to analyze image: " + err.message);
+          setIsAnalyzing(false);
+          return;
+        }
+      }
+
       if (isColab) {
         try {
           const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -776,9 +1019,10 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
           const resObj = await processWithGroq(dataToProcess, "extract_blocks");
           const aiBlocksStr = resObj.text;
           updateUserTokenUsage(resObj.usage.total_tokens, 0);
-          const jsonMatch = aiBlocksStr.match(/\[.*\]/s);
+          const jsonMatch = aiBlocksStr.match(/\{[\s\S]*\}/s) || aiBlocksStr.match(/\[.*\]/s);
           if (jsonMatch) {
-            const blocks = JSON.parse(jsonMatch[0]);
+            const parsed = JSON.parse(jsonMatch[0]);
+            const blocks = parsed.blocks || (Array.isArray(parsed) ? parsed : []);
             const newEntriesList = [];
             const actionSource = isColab ? 'Colab Import' : type === 'pdf' ? 'PDF Upload' : type === 'photo' ? 'Image OCR' : 'Text Note';
             for (const block of blocks) {
@@ -800,7 +1044,7 @@ CRITICAL INSTRUCTION FOR CORRECTED CODE:
             setIsAnalyzing(false);
             return;
           } else {
-            throw new Error("No JSON array found in response");
+            throw new Error("No JSON found in response");
           }
         } catch (err) {
           console.error("Groq JSON Error:", err);
@@ -1288,7 +1532,27 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                         </div>
 
                         {/* Cell Body */}
-                        <div className="flex-1 bg-white border border-gray-300 rounded-lg relative focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400 shadow-sm transition-all">
+                        <div className={`flex-1 bg-white border rounded-lg relative shadow-sm transition-all ${
+                          cell.correctedCode 
+                            ? 'border-rose-300 ring-2 ring-rose-400/40 ring-offset-1 shadow-rose-100/50' 
+                            : 'border-gray-300 focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400'
+                        }`}>
+                          {/* Future Predict Banner */}
+                          {cell.correctedCode && (
+                            <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100 rounded-t-lg select-none">
+                              <div className="flex items-center gap-2 text-xs font-bold text-rose-700">
+                                <Sparkles className="w-4 h-4 text-rose-500 animate-pulse" />
+                                <span>🔮 Future Predict Available! Press Tab in editor to apply AI fix.</span>
+                              </div>
+                              <button 
+                                onClick={() => updateCell(cell.id, { correctedCode: null })}
+                                className="text-rose-500 hover:text-rose-700 text-xs font-bold"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          )}
+
                           {/* Floating Toolbar */}
                           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-200 rounded-md shadow-sm flex items-center z-10 text-gray-500">
                              <button onClick={() => handleAskAI(cell.id, cell.content)} className="p-1.5 hover:bg-indigo-50 hover:text-indigo-600 transition-colors border-l border-gray-200" title="Ask AI to Explain/Correct">
@@ -1330,6 +1594,20 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                                   editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => {
                                     runCode(cell.id, editor.getValue());
                                   });
+
+                                  // Intercept Tab for Future Predict
+                                  editor.onKeyDown((e) => {
+                                    if (e.keyCode === monaco.KeyCode.Tab) {
+                                      const currentCells = codeCellsRef.current;
+                                      const activeCell = currentCells.find(c => c.id === cell.id);
+                                      if (activeCell && activeCell.correctedCode) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        editor.setValue(activeCell.correctedCode);
+                                        updateCell(cell.id, { correctedCode: null });
+                                      }
+                                    }
+                                  });
                                 }}
                                 options={{
                                   minimap: { enabled: false },
@@ -1338,7 +1616,7 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                                   lineNumbers: 'off',
                                   folding: false,
                                   overviewRulerLanes: 0,
-                                  scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                                  scrollbar: { vertical: 'hidden', horizontal: 'hidden', handleMouseWheel: false },
                                   hideCursorInOverviewRuler: true,
                                   renderLineHighlight: 'none',
                                   contextmenu: false,
@@ -1403,8 +1681,21 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                             <div className="w-10 shrink-0 flex justify-end pr-2 pt-2 text-emerald-500">
                                {cell.isRunning ? '' : <Check className="w-4 h-4" />}
                             </div>
-                            <div className="flex-1 p-2 font-mono text-[13px] overflow-x-auto text-gray-800">
-                               <pre className={cell.output.includes('Error') ? 'text-red-600' : 'text-gray-800'}>{cell.output}</pre>
+                            <div className={`flex-1 p-4 rounded-xl font-mono text-[13px] overflow-x-auto border relative group/output ${
+                              cell.output.toLowerCase().includes('error') || cell.output.toLowerCase().includes('traceback') || cell.output.toLowerCase().includes('exception')
+                                ? 'bg-red-50/50 text-red-700 border-red-200/60' 
+                                : 'bg-white text-gray-700 border-gray-200'
+                            }`}>
+                               <pre className="custom-scrollbar whitespace-pre-wrap">{cell.output}</pre>
+                               
+                               {(cell.output.toLowerCase().includes('error') || cell.output.toLowerCase().includes('traceback') || cell.output.toLowerCase().includes('exception')) && (
+                                 <button 
+                                   onClick={() => handleAskAI(cell.id, cell.content)}
+                                   className="absolute top-2 right-2 bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm border border-rose-200 cursor-pointer animate-in fade-in duration-200"
+                                 >
+                                   <Brain className="w-3.5 h-3.5" /> Explain Error
+                                 </button>
+                               )}
                             </div>
                          </div>
                       )}
@@ -1600,6 +1891,88 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                           </div>
                         ) : (
                           <div className="mt-2">
+                            {entry.type === 'photo' && (() => {
+                              return (
+                                <div className="space-y-6 select-text mt-2">
+                                  <div className="flex flex-wrap items-center gap-2 text-xs select-none">
+                                    <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200 shadow-xs">
+                                      #{index + 1}
+                                    </span>
+                                    <span className="text-[10px] uppercase font-black tracking-wider text-gray-400">
+                                      Smart OCR Note
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-slate-50 border border-slate-200/60 rounded-3xl p-6 shadow-sm">
+                                    {/* Left Side: Uploaded Image */}
+                                    <div className="flex flex-col space-y-3">
+                                      <div className="relative group overflow-hidden rounded-2xl border border-gray-200 shadow-inner bg-white max-h-[350px] flex items-center justify-center">
+                                        <img 
+                                          src={entry.photoUrl} 
+                                          alt="Uploaded Visual Note" 
+                                          className="object-contain max-h-[350px] w-full rounded-2xl transition-transform duration-300 group-hover:scale-105"
+                                        />
+                                      </div>
+                                      <div className="p-3.5 bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/50 shadow-xs text-left">
+                                        <h5 className="text-[12px] font-black uppercase text-slate-400 tracking-wider mb-1">AI Image Description</h5>
+                                        <p className="text-gray-700 text-sm font-semibold leading-relaxed">{entry.description}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Right Side: Logically Chunked Items */}
+                                    <div className="flex flex-col space-y-4">
+                                      <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                                        <span className="text-xs font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+                                          <Brain className="w-4 h-4" /> OCR Learning Chunks
+                                        </span>
+                                      </div>
+                                      
+                                      {entry.chunks && entry.chunks.length > 0 ? (
+                                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1.5 custom-scrollbar">
+                                          {entry.chunks.map((chunk, cIdx) => (
+                                            <div 
+                                              key={chunk.id || cIdx}
+                                              className="p-4 bg-white border border-gray-200 hover:border-indigo-200 rounded-2xl shadow-xs transition-all text-left flex flex-col gap-2.5 relative group/chunk"
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-gray-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/65">
+                                                  {chunk.title || `Chunk ${cIdx + 1}`}
+                                                </span>
+                                                <div className="opacity-0 group-hover/chunk:opacity-100 transition-opacity flex items-center gap-1.5 z-10">
+                                                  <button 
+                                                    onClick={() => handleSliceChunk(entry.id, chunk.id)}
+                                                    className="p-1 text-rose-500 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100 transition-all cursor-pointer"
+                                                    title="Slice/Split chunk"
+                                                  >
+                                                    <Scissors className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button 
+                                                    onClick={() => handleFeedToRAG(chunk.content, chunk.title)}
+                                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-lg text-[10px] font-black border border-indigo-150 transition-all flex items-center gap-1 cursor-pointer"
+                                                    title="Query this chunk in RAG study center"
+                                                  >
+                                                    <Database className="w-3 h-3" /> Feed to RAG
+                                                  </button>
+                                                </div>
+                                              </div>
+                                              <div className="prose prose-indigo prose-sm max-w-none text-gray-705 text-gray-800 leading-relaxed font-sans select-text">
+                                                <ReactMarkdown>{chunk.content ? chunk.content.replace(/\\n/g, '\n') : ''}</ReactMarkdown>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-100/50 border border-dashed border-slate-300 rounded-2xl text-slate-400">
+                                          <Brain className="w-8 h-8 mb-2 animate-pulse text-slate-350" />
+                                          <span className="text-xs font-bold">No OCR Chunks extracted. Try editing or rescanning.</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {entry.type === 'text' && (() => {
                               const cellTopic = detectTopic(entry);
                               return (
@@ -1725,7 +2098,7 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
                                             renderLineHighlight: "none",
                                             hideCursorInOverviewRuler: true,
                                             overviewRulerBorder: false,
-                                            scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                                            scrollbar: { vertical: 'hidden', horizontal: 'hidden', handleMouseWheel: false },
                                             wordWrap: 'on',
                                             automaticLayout: true,
                                             fixedOverflowWidgets: true
@@ -1945,6 +2318,202 @@ Please output a corrected step-by-step trace. Follow the exact same formatting r
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Slicing / Knife Tool Modal */}
+      {isSliceModalOpen && slicingChunk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm select-none">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 text-left">
+            <div className="flex items-center justify-between p-5 border-b border-gray-150">
+              <span className="font-black text-gray-900 flex items-center gap-2">
+                <Scissors className="w-5 h-5 text-rose-500 animate-pulse" /> Knife Tool: Slice OCR Chunk
+              </span>
+              <button 
+                onClick={() => { setIsSliceModalOpen(false); setSlicingChunk(null); }}
+                className="p-1.5 hover:bg-gray-150 rounded-lg text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <p className="text-xs font-semibold text-gray-500">
+                You can edit the content below, or split it into two separate chunks by typing content into "Chunk 2".
+              </p>
+              
+              {/* Chunk 1 */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Chunk 1 Title</label>
+                <input 
+                  type="text" 
+                  value={sliceTitle1}
+                  onChange={(e) => setSliceTitle1(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:border-indigo-500 outline-none text-sm font-bold text-gray-800"
+                />
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Chunk 1 Content</label>
+                <textarea 
+                  value={sliceContent1}
+                  onChange={(e) => setSliceContent1(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-xl focus:border-indigo-500 outline-none text-sm font-medium text-gray-850 h-[100px] resize-none"
+                />
+              </div>
+
+              {/* Chunk 2 */}
+              <div className="space-y-2 border-t border-gray-100 pt-4">
+                <label className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <Scissors className="w-3.5 h-3.5" /> Chunk 2 (Optional - Split here)
+                </label>
+                <input 
+                  type="text" 
+                  value={sliceTitle2}
+                  onChange={(e) => setSliceTitle2(e.target.value)}
+                  placeholder="Enter title for secondary chunk..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:border-indigo-500 outline-none text-sm font-bold text-gray-800"
+                />
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Chunk 2 Content</label>
+                <textarea 
+                  value={sliceContent2}
+                  onChange={(e) => setSliceContent2(e.target.value)}
+                  placeholder="Type or paste content for secondary chunk..."
+                  className="w-full p-3 border border-gray-300 rounded-xl focus:border-indigo-500 outline-none text-sm font-medium text-gray-850 h-[100px] resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-100 bg-gray-50">
+              <button 
+                onClick={() => { setIsSliceModalOpen(false); setSlicingChunk(null); }}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveSlice}
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Scissors className="w-4 h-4" /> Save Slice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RAG Retrieval Hub Modal */}
+      {isRagOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm select-none animate-fade-in">
+          <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 text-left">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-150">
+              <span className="font-black text-gray-900 flex items-center gap-2">
+                <Database className="w-5 h-5 text-indigo-500 animate-pulse" /> RAG Knowledge Retrieval Hub
+              </span>
+              <button 
+                onClick={() => setIsRagOpen(false)}
+                className="p-1.5 hover:bg-gray-150 rounded-lg text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {/* Modal Content - Split Panels */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-[500px] max-h-[75vh] overflow-hidden">
+              
+              {/* Left Panel: Search Query and Retrieved Context (col-span-5) */}
+              <div className="lg:col-span-5 bg-slate-50 border-r border-gray-150 p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                
+                {/* Search Text Area / Input Box */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Ask a Question / Refine Query</label>
+                  <textarea 
+                    value={ragQuery}
+                    onChange={(e) => setRagQuery(e.target.value)}
+                    placeholder="Enter your question to query the RAG database..."
+                    className="w-full p-3.5 bg-white border border-gray-300 rounded-2xl focus:border-indigo-500 outline-none text-sm font-semibold text-gray-800 shadow-sm resize-none h-[90px]"
+                  />
+                  <button 
+                    onClick={() => {
+                      const matches = retrieveRelevantEntries(ragQuery);
+                      setRetrievedContext(matches);
+                      handleExecuteRAG(ragQuery, matches);
+                    }}
+                    disabled={isRagGenerating || !ragQuery.trim()}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    {isRagGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />} Search & Ask AI
+                  </button>
+                </div>
+
+                {/* Retrieved Context Cards */}
+                <div className="flex-1 flex flex-col gap-3 min-h-0">
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1 border-b border-gray-200 pb-1.5">
+                    <Database className="w-3.5 h-3.5" /> Retrieved Study Context ({retrievedContext.length})
+                  </span>
+                  
+                  {retrievedContext.length > 0 ? (
+                    <div className="space-y-3 overflow-y-auto pr-1 flex-1 custom-scrollbar">
+                      {retrievedContext.map((match, mIdx) => (
+                        <div 
+                          key={match.id || mIdx}
+                          className="p-3.5 bg-white border border-gray-200 rounded-xl shadow-xs text-left"
+                        >
+                          <div className="flex items-center gap-2 mb-2 select-none">
+                            <span className="bg-slate-100 text-slate-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-slate-200">
+                              Source: {match.source || 'Notebook'}
+                            </span>
+                            {match.timestamp && (
+                              <span className="text-[9.5px] text-gray-400 font-bold">{match.timestamp}</span>
+                            )}
+                          </div>
+                          <div className="text-[12.5px] font-medium text-gray-700 line-clamp-4 leading-relaxed font-sans">
+                            {match.content}
+                          </div>
+                          {match.output && (
+                            <div className="mt-2 p-2 bg-slate-50 border border-slate-150 rounded-lg text-[10.5px] font-mono text-gray-600 truncate">
+                              Output: {match.output}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-gray-300 rounded-2xl bg-white/50 text-gray-400">
+                      <Database className="w-6 h-6 mb-2 animate-bounce text-gray-300" />
+                      <span className="text-xs font-bold text-center">No related matching notebook notes found. Enter keywords to retrieve context.</span>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Right Panel: Synthesized Answer Output (col-span-7) */}
+              <div className="lg:col-span-7 p-6 flex flex-col gap-4 overflow-y-auto custom-scrollbar bg-white">
+                <span className="text-xs font-black text-gray-500 uppercase tracking-wider border-b border-gray-150 pb-2">
+                  🔮 AI Explanation Response
+                </span>
+                
+                {isRagGenerating ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                    <span className="text-sm font-bold text-gray-500">AI is analyzing context to synthesize notes...</span>
+                  </div>
+                ) : ragAnswer ? (
+                  <div className="flex-1 text-left prose prose-indigo prose-sm max-w-none text-gray-800 leading-relaxed font-sans select-text overflow-y-auto custom-scrollbar">
+                    <ReactMarkdown>{ragAnswer}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                    <Brain className="w-10 h-10 mb-3 text-indigo-300 animate-pulse" />
+                    <span className="text-sm font-semibold text-center leading-relaxed">
+                      AI is waiting to explain this topic. Click "Search & Ask AI" to generate a retrieval explanation.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

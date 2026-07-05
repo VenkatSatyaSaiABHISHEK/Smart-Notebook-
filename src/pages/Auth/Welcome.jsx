@@ -60,7 +60,7 @@ const Welcome = () => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold mb-3 text-[#111827]">Welcome to LearnLoop</h1>
+        <h1 className="text-3xl font-bold mb-3 text-[#111827]">Welcome to VidyaSetu Ai</h1>
         <p className="text-[#6b7280] text-sm mb-10 leading-relaxed font-medium">
           Your AI-powered learning and collaboration ecosystem. Track, organize, and grow.
         </p>

@@ -13,8 +13,8 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5000000
       },
       manifest: {
-        name: 'LearnLoop',
-        short_name: 'LearnLoop',
+        name: 'VidyaSetu Ai',
+        short_name: 'VidyaSetu Ai',
         description: 'AI-powered collaborative learning platform',
         theme_color: '#ffffff',
         icons: [

@@ -8,7 +8,6 @@ import CommunityShowcase from '../components/landing/CommunityShowcase';
 import AnalyticsSection from '../components/landing/AnalyticsSection';
 import WorkflowTimeline from '../components/landing/WorkflowTimeline';
 import Testimonials from '../components/landing/Testimonials';
-import PricingSection from '../components/landing/PricingSection';
 import FAQSection from '../components/landing/FAQSection';
 import Footer from '../components/landing/Footer';
 import gsap from 'gsap';
@@ -51,7 +50,6 @@ const Home = () => {
         <AnalyticsSection />
         <WorkflowTimeline />
         <Testimonials />
-        <PricingSection />
         <FAQSection />
       </main>
 

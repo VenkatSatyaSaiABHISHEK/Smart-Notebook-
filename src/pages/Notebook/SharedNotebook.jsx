@@ -268,7 +268,7 @@ match /users/{userId}/notebook_days/{day}/entries/{entryId} {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shrink-0">
               <Brain className="w-4 h-4" />
             </div>
-            <span className="font-bold text-gray-900 text-sm md:text-base hidden sm:inline">LearnLoop Shared Notebook</span>
+            <span className="font-bold text-gray-900 text-sm md:text-base hidden sm:inline">VidyaSetu Ai Shared Notebook</span>
             <span className="font-bold text-gray-900 text-sm sm:hidden">Shared Notebook</span>
           </div>
         </div>

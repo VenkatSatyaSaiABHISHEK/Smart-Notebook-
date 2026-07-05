@@ -17,7 +17,6 @@ const Navbar = () => {
     { name: 'Features', href: '#features' },
     { name: 'Community', href: '#community' },
     { name: 'AI Intelligence', href: '#ai' },
-    { name: 'Pricing', href: '#pricing' },
     { name: 'Docs', href: '#docs' },
   ];
 
@@ -37,7 +36,7 @@ const Navbar = () => {
               <Sparkles className="w-5 h-5 text-[#111827] relative z-10" />
               <div className="absolute inset-0 bg-white/20 blur-md group-hover:opacity-100 opacity-0 transition-opacity" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-[#111827]">LearnLoop</span>
+            <span className="font-bold text-xl tracking-tight text-[#111827]">VidyaSetu Ai</span>
           </Link>
 
           {/* Desktop Nav */}

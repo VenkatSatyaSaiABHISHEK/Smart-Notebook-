@@ -15,7 +15,7 @@ const WorkflowTimeline = () => {
     <section className="py-24 w-full relative z-10">
       <div className="max-w-4xl mx-auto px-6">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold mb-4">How LearnLoop Works</h2>
+          <h2 className="text-3xl md:text-5xl font-extrabold mb-4">How VidyaSetu Ai Works</h2>
           <p className="text-gray-600">A seamless workflow designed for peak productivity.</p>
         </div>
 

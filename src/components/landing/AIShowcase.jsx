@@ -4,7 +4,7 @@ import { Sparkles, Brain, ArrowRight } from 'lucide-react';
 
 const AIShowcase = () => {
   return (
-    <section id="ai" className="py-24 w-full relative overflow-hidden">
+    <section id="ai" className="py-24 w-full bg-[#0a0a0f] relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0f] via-purple-900/10 to-[#0a0a0f] pointer-events-none" />
       
       <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -16,8 +16,8 @@ const AIShowcase = () => {
               <Brain className="w-4 h-4 mr-2" />
               Powered by Gemini AI
             </div>
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-6">Your Personal <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">AI Learning Mentor.</span></h2>
-            <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+            <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6">Your Personal <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">AI Learning Mentor.</span></h2>
+            <p className="text-gray-400 text-lg mb-8 leading-relaxed">
               Upload rough notes or code snippets, and watch the AI instantly transform them into beautifully formatted explanations, complete with analogies, examples, and practice quizzes.
             </p>
             
@@ -27,13 +27,13 @@ const AIShowcase = () => {
                   <div className="mt-1 w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 mr-3 shrink-0">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                   </div>
-                  <span className="text-gray-700 font-medium">{item}</span>
+                  <span className="text-gray-300 font-medium">{item}</span>
                 </li>
               ))}
             </ul>
             
-            <button className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-[#111827] font-semibold transition-colors flex items-center">
-              Explore AI Features <ArrowRight className="w-4 h-4 ml-2" />
+            <button className="px-6 py-3 rounded-xl bg-white hover:bg-gray-100 text-black font-extrabold transition-all hover:scale-105 shadow-md flex items-center select-none cursor-pointer">
+              Explore AI Features <ArrowRight className="w-4 h-4 ml-2 text-indigo-600" />
             </button>
           </div>
           

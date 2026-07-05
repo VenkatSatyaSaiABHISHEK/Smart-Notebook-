@@ -192,7 +192,7 @@ const DemoTry = () => {
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="font-extrabold text-xs sm:text-sm tracking-wide text-slate-900 shrink-0">
-            <span className="hidden sm:inline">LearnLoop Try Sandbox</span>
+            <span className="hidden sm:inline">VidyaSetu Ai Try Sandbox</span>
             <span className="sm:hidden">Try Sandbox</span>
           </span>
         </div>
@@ -612,7 +612,7 @@ const DemoTry = () => {
                         <CheckCircle2 className="w-8 h-8 text-emerald-500 animate-bounce" />
                         <h5 className="font-extrabold text-slate-800 text-xs mt-1">Feedback Logged!</h5>
                         <p className="text-[10.5px] text-slate-500 max-w-[200px]">
-                          Thank you for helping us make LearnLoop better.
+                          Thank you for helping us make VidyaSetu Ai better.
                         </p>
                       </div>
                     ) : (

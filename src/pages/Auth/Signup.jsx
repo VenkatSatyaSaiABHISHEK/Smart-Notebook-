@@ -119,7 +119,7 @@ const Signup = () => {
         >
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
-            <p className="text-gray-400">Join LearnLoop to unlock your AI mentor.</p>
+            <p className="text-gray-400">Join VidyaSetu Ai to unlock your AI mentor.</p>
           </div>
 
           <AnimatePresence>

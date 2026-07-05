@@ -73,7 +73,7 @@ const AIIntelligence = () => {
                 <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-[3px] border-white rounded-full"></div>
               </div>
               <div className="ml-4">
-                <h3 className="font-extrabold text-gray-900 text-[16px]">LearnLoop Mentor AI</h3>
+                <h3 className="font-extrabold text-gray-900 text-[16px]">VidyaSetu Ai Mentor</h3>
                 <p className="text-[12px] font-bold text-emerald-600 mt-0.5">Online & Ready</p>
               </div>
             </div>

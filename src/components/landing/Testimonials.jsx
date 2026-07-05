@@ -12,8 +12,8 @@ const Testimonials = () => {
   return (
     <section className="py-24 w-full bg-[#050508] relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 mb-16 text-center">
-        <h2 className="text-4xl font-extrabold mb-4">Loved by Students.</h2>
-        <p className="text-gray-600">Join thousands of learners achieving their placement goals.</p>
+        <h2 className="text-4xl font-extrabold text-white mb-4">Loved by Students.</h2>
+        <p className="text-gray-400 font-medium">Join thousands of learners achieving their placement goals.</p>
       </div>
 
       {/* Auto-scrolling carousel logic can be done with CSS animation or Framer Motion */}
